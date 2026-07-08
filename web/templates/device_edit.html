@@ -1,0 +1,116 @@
+{{template "layout.html" .}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>
+        <a href="/devices" style="color: var(--text-muted);">Equipamentos</a> /
+        <a href="/devices/{{.Device.ID}}" style="color: var(--text-muted);">{{.Device.Hostname}}</a> /
+        Configurações
+    </h2>
+</div>
+
+<form id="edit-form" method="POST" action="/devices/edit">
+    <input type="hidden" name="device_id" value="{{.Device.ID}}">
+
+    <!-- Identificação -->
+    <div class="card mb-md">
+        <div class="card-header">
+            <span class="card-title">Identificação</span>
+        </div>
+        <div style="padding: 1.25rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                <div>
+                    <label class="form-label">Hostname *</label>
+                    <input type="text" name="hostname" value="{{.Device.Hostname}}" class="form-input" required>
+                </div>
+                <div>
+                    <label class="form-label">Endereço IP</label>
+                    <input type="text" value="{{.Device.IPAddress}}" class="form-input" disabled
+                           style="opacity: 0.6; cursor: not-allowed;">
+                    <small style="color: var(--text-muted); font-size: 0.7rem;">IP não pode ser alterado. Remova e adicione novamente.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SNMP -->
+    <div class="card mb-md">
+        <div class="card-header">
+            <span class="card-title">SNMP</span>
+        </div>
+        <div style="padding: 1.25rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                <div>
+                    <label class="form-label">Versão SNMP</label>
+                    <input type="text" value="{{.Device.SNMPVersion}}" class="form-input" disabled
+                           style="opacity: 0.6; cursor: not-allowed;">
+                </div>
+                <div>
+                    <label class="form-label">Community</label>
+                    <input type="text" name="community" value="{{if .Device.Community}}{{deref .Device.Community}}{{end}}" class="form-input" placeholder="public">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Polling -->
+    <div class="card mb-md">
+        <div class="card-header">
+            <span class="card-title">Polling</span>
+        </div>
+        <div style="padding: 1.25rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; align-items: start;">
+                <div>
+                    <label class="form-label">Intervalo de Polling (segundos)</label>
+                    <input type="number" name="poll_interval" value="{{.Device.PollInterval}}" class="form-input" min="30" step="10">
+                    <small style="color: var(--text-muted); font-size: 0.7rem;">Mínimo 30 segundos.</small>
+                </div>
+                <div style="padding-top: 1.5rem;">
+                    <label style="display:flex; align-items:center; gap: 8px; cursor: pointer; font-size: 0.9rem;">
+                        <input type="checkbox" name="ping_enabled" {{if .Device.PingEnabled}}checked{{end}}
+                               style="width: 18px; height: 18px;">
+                        Ping habilitado (ICMP)
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+    <!-- Ações -->
+    <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <button type="submit" form="edit-form" class="btn">💾 Salvar Configurações</button>
+        <a href="/devices/{{.Device.ID}}" class="btn btn-sm" style="background: var(--surface-2); color: var(--text);">Cancelar</a>
+        <div style="flex:1;"></div>
+        <button type="button" class="btn btn-sm btn-danger" onclick="document.getElementById('delete-modal').classList.add('active')">🗑️ Remover Equipamento</button>
+    </div>
+
+<!-- Delete Device Modal -->
+<div class="modal-overlay" id="delete-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 style="color: #ef4444;">Remover Equipamento</h3>
+            <button class="modal-close" onclick="document.getElementById('delete-modal').classList.remove('active')">✕</button>
+        </div>
+        <div style="padding: 1.25rem;">
+            <p>Tem certeza que deseja remover <strong>{{.Device.Hostname}}</strong>?</p>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">Esta ação removerá o equipamento e parará a coleta de logs e métricas. Não é possível desfazer.</p>
+            <form method="POST" action="/devices/delete" style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+                <input type="hidden" name="device_id" value="{{.Device.ID}}">
+                <button type="button" class="btn" style="background: var(--surface-2); color: var(--text);" onclick="document.getElementById('delete-modal').classList.remove('active')">Cancelar</button>
+                <button type="submit" class="btn btn-danger" style="background: #ef4444; color: white;">Confirmar Remoção</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+</style>
+{{end}}

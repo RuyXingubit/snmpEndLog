@@ -1,0 +1,258 @@
+{{template "layout.html" .}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>
+        <a href="/devices" style="color: var(--text-muted);">Equipamentos</a> /
+        {{.Device.Hostname}}
+        {{if eq .Device.Status "up"}}<span class="badge badge-up">UP</span>
+        {{else if eq .Device.Status "down"}}<span class="badge badge-down">DOWN</span>
+        {{else}}<span class="badge badge-unknown">???</span>{{end}}
+    </h2>
+    <div class="header-actions">
+        <a href="/devices/{{.Device.ID}}/edit" class="btn btn-sm" style="margin-right: 8px;">⚙️ Configurações</a>
+        <div class="chart-controls" id="period-selector">
+            <button class="chart-period" data-period="15m">15m</button>
+            <button class="chart-period active" data-period="1h">1h</button>
+            <button class="chart-period" data-period="6h">6h</button>
+            <button class="chart-period" data-period="24h">24h</button>
+            <button class="chart-period" data-period="7d">7d</button>
+        </div>
+    </div>
+</div>
+
+<!-- Device Info -->
+<div class="stats-grid">
+    <div class="stat-card accent">
+        <div class="stat-icon">🌐</div>
+        <div class="stat-value" style="font-size: 1.2rem;">{{.Device.IPAddress}}</div>
+        <div class="stat-label">Endereço IP</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-icon">⏱️</div>
+        <div class="stat-value" style="font-size: 1.2rem;" id="uptime-value">
+            {{if .Device.SysUptime}}{{formatDuration (derefInt64 .Device.SysUptime)}}{{else}}N/A{{end}}
+        </div>
+        <div class="stat-label">Uptime</div>
+    </div>
+    {{if .Device.Voltage}}
+    <div class="stat-card blue">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-value" style="font-size: 1.2rem;">{{printf "%.1f" (derefFloat64 .Device.Voltage)}} V</div>
+        <div class="stat-label">Voltagem</div>
+    </div>
+    {{end}}
+    <div class="stat-card yellow">
+        <div class="stat-icon">🔌</div>
+        <div class="stat-value">{{len .Interfaces}}</div>
+        <div class="stat-label">Interfaces</div>
+    </div>
+    <div class="stat-card purple" style="--before-bg: var(--purple);">
+        <div class="stat-icon">🔧</div>
+        <div class="stat-value" style="font-size: 1.2rem;">{{.Device.SNMPVersion}}</div>
+        <div class="stat-label">Versão SNMP</div>
+    </div>
+    <div class="stat-card accent" id="pppoe-card" style="display: none;">
+        <div class="stat-icon">👥</div>
+        <div class="stat-value" style="font-size: 1.2rem;" id="pppoe-value">0</div>
+        <div class="stat-label">PPPoE Online</div>
+    </div>
+</div>
+
+<!-- System Info -->
+<div class="card mb-md">
+    <div class="card-header">
+        <span class="card-title">Informações do Sistema</span>
+        {{if .Device.Vendor}}<span class="badge badge-up" style="margin-left: 8px;">{{deref .Device.Vendor}}</span>{{end}}
+    </div>
+    <table>
+        <tbody>
+            <tr><td style="width:140px;font-weight:600;">Fabricante</td><td>{{if .Device.Vendor}}{{deref .Device.Vendor}}{{else}}<span class="text-muted">Não identificado</span>{{end}}</td></tr>
+            <tr><td style="font-weight:600;">sysName</td><td>{{if .Device.SysName}}{{deref .Device.SysName}}{{else}}—{{end}}</td></tr>
+            <tr><td style="font-weight:600;">sysDescr</td><td class="mono" style="font-size:0.75rem;">{{if .Device.SysDescr}}{{deref .Device.SysDescr}}{{else}}—{{end}}</td></tr>
+            <tr><td style="font-weight:600;">sysLocation</td><td>{{if .Device.SysLocation}}{{deref .Device.SysLocation}}{{else}}—{{end}}</td></tr>
+            {{if .Device.BoardName}}<tr><td style="font-weight:600;">Board</td><td>{{deref .Device.BoardName}}</td></tr>{{end}}
+            {{if .Device.SerialNumber}}<tr><td style="font-weight:600;">Serial</td><td class="mono">{{deref .Device.SerialNumber}}</td></tr>{{end}}
+            {{if .Device.FirmwareVersion}}<tr><td style="font-weight:600;">Firmware</td><td class="mono">{{deref .Device.FirmwareVersion}}</td></tr>{{end}}
+        </tbody>
+    </table>
+</div>
+
+<!-- Charts -->
+<div class="dashboard-grid">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">📈 CPU</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart-cpu"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">💾 Memória</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart-memory"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">📶 Latência (Ping)</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart-ping"></canvas>
+        </div>
+    </div>
+    <div class="card" id="pppoe-chart-card" style="display: none;">
+        <div class="card-header">
+            <span class="card-title">👥 Usuários PPPoE</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart-pppoe"></canvas>
+        </div>
+    </div>
+</div>
+
+{{if .BgpPeers}}
+<!-- BGP Peers Table -->
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">🌐 Sessões BGP</span>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Peer IP</th>
+                    <th>AS Remoto</th>
+                    <th>Status</th>
+                    <th>Mensagens IN</th>
+                    <th>Mensagens OUT</th>
+                    <th>Prefixos Recebidos</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .BgpPeers}}
+                <tr>
+                    <td>{{.PeerAddr}}</td>
+                    <td>{{if .PeerAs}}{{.PeerAs}}{{else}}-{{end}}</td>
+                    <td>
+                        {{if eq .State 6}}
+                            <span class="status-badge status-up">Established</span>
+                        {{else if eq .State 1}}
+                            <span class="status-badge status-down">Idle</span>
+                        {{else if eq .State 2}}
+                            <span class="status-badge status-down">Connect</span>
+                        {{else if eq .State 3}}
+                            <span class="status-badge status-down">Active</span>
+                        {{else if eq .State 4}}
+                            <span class="status-badge status-down">OpenSent</span>
+                        {{else if eq .State 5}}
+                            <span class="status-badge status-down">OpenConfirm</span>
+                        {{else}}
+                            <span class="status-badge status-unknown">Unknown</span>
+                        {{end}}
+                    </td>
+                    <td>{{if .InUpdates}}{{.InUpdates}}{{else}}-{{end}}</td>
+                    <td>{{if .OutUpdates}}{{.OutUpdates}}{{else}}-{{end}}</td>
+                    <td>{{if .PrefixesReceived}}<strong>{{.PrefixesReceived}}</strong>{{else}}-{{end}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}
+
+<!-- Interfaces Table -->
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">🔌 Interfaces</span>
+    </div>
+    {{if .Interfaces}}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Index</th>
+                    <th>Descrição</th>
+                    <th>Alias</th>
+                    <th>Status</th>
+                    <th>Velocidade</th>
+                    <th>↓ In</th>
+                    <th>↑ Out</th>
+                    <th>Erros In</th>
+                    <th>Erros Out</th>
+                    <th>Gráfico</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Interfaces}}
+                <tr>
+                    <td class="mono">{{.IfIndex}}</td>
+                    <td>{{if .IfDescr}}{{deref .IfDescr}}{{else}}—{{end}}</td>
+                    <td class="text-muted">{{if .IfAlias}}{{deref .IfAlias}}{{else}}—{{end}}</td>
+                    <td>
+                        {{if eq .IfOperStatus 1}}<span class="badge badge-up">UP</span>
+                        {{else}}<span class="badge badge-down">DOWN</span>{{end}}
+                    </td>
+                    <td class="mono">
+                        {{if .IfSpeed}}{{formatBps (toFloat64 (derefInt64 .IfSpeed))}}{{else}}—{{end}}
+                    </td>
+                    <td class="mono text-green">
+                        {{if .InBps}}{{formatBps (derefFloat64 .InBps)}}{{else}}—{{end}}
+                    </td>
+                    <td class="mono text-accent">
+                        {{if .OutBps}}{{formatBps (derefFloat64 .OutBps)}}{{else}}—{{end}}
+                    </td>
+                    <td class="mono">{{if .InErrors}}{{derefInt64 .InErrors}}{{else}}0{{end}}</td>
+                    <td class="mono">{{if .OutErrors}}{{derefInt64 .OutErrors}}{{else}}0{{end}}</td>
+                    <td>
+                        <button class="btn btn-sm" onclick="showTrafficChart({{$.Device.ID}}, {{.IfIndex}}, '{{if .IfDescr}}{{deref .IfDescr}}{{else}}if{{.IfIndex}}{{end}}')">
+                            📈
+                        </button>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <div class="empty-icon">🔌</div>
+        <h3>Nenhuma interface descoberta</h3>
+        <p>As interfaces serão descobertas no próximo ciclo de polling.</p>
+    </div>
+    {{end}}
+</div>
+
+<!-- Traffic Chart Modal -->
+<div class="modal-overlay" id="traffic-modal">
+    <div class="modal" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 id="traffic-modal-title">Tráfego</h3>
+            <button class="modal-close" onclick="document.getElementById('traffic-modal').classList.remove('active')">✕</button>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="chart-traffic-detail"></canvas>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/js/charts.js?v=2"></script>
+<script>
+    const deviceId = {{.Device.ID}};
+    initDeviceCharts(deviceId, '1h');
+
+    // Period selector
+    document.querySelectorAll('#period-selector .chart-period').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('#period-selector .chart-period').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            initDeviceCharts(deviceId, this.dataset.period);
+        });
+    });
+</script>
+{{end}}

@@ -1,0 +1,99 @@
+{{template "layout.html" .}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>📋 Logs</h2>
+    <div class="header-actions">
+        <span class="text-muted" style="font-size: 0.8rem;" id="log-count"></span>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-md">
+    <div class="log-filters">
+        <input type="text" class="form-input" id="log-search" placeholder="🔍 Buscar nos logs..."
+               style="flex: 2;">
+        <select class="form-input form-select" id="log-host">
+            <option value="">Todos os hosts</option>
+        </select>
+        <select class="form-input form-select" id="log-severity">
+            <option value="">Todas severidades</option>
+            <option value="emergency">🔴 Emergency</option>
+            <option value="alert">🔴 Alert</option>
+            <option value="critical">🔴 Critical</option>
+            <option value="error">🟠 Error</option>
+            <option value="warning">🟡 Warning</option>
+            <option value="notice">🔵 Notice</option>
+            <option value="info">🔵 Info</option>
+            <option value="debug">⚪ Debug</option>
+        </select>
+        <select class="form-input form-select" id="log-period">
+            <option value="15m">Últimos 15 min</option>
+            <option value="1h" selected>Última hora</option>
+            <option value="6h">Últimas 6 horas</option>
+            <option value="24h">Últimas 24 horas</option>
+            <option value="7d">Últimos 7 dias</option>
+            <option value="30d">Últimos 30 dias</option>
+        </select>
+        <button class="btn btn-primary" onclick="searchLogs()">Buscar</button>
+    </div>
+</div>
+
+<!-- Severity Stats -->
+<div class="stats-grid" id="severity-stats" style="margin-bottom: var(--space-md);"></div>
+
+<!-- Log Table -->
+<div class="card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Host</th>
+                    <th>Severidade</th>
+                    <th>App</th>
+                    <th>Mensagem</th>
+                </tr>
+            </thead>
+            <tbody id="log-table-body">
+                <tr>
+                    <td colspan="5" class="empty-state">
+                        <div class="loading-spinner"></div>
+                        <p class="mt-md">Carregando logs...</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+        <button class="btn btn-sm" id="prev-page" onclick="changePage(-1)" disabled>← Anterior</button>
+        <span class="page-info" id="page-info">Página 1</span>
+        <button class="btn btn-sm" id="next-page" onclick="changePage(1)">Próxima →</button>
+    </div>
+</div>
+
+<script src="/static/js/logs.js"></script>
+<script>
+    // Initial load
+    loadHosts();
+    loadLogStats();
+    searchLogs();
+
+    // Auto-refresh
+    setInterval(() => {
+        loadLogStats();
+    }, 30000);
+
+    // Search on Enter
+    document.getElementById('log-search').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') searchLogs();
+    });
+
+    // Filter change triggers search
+    ['log-host', 'log-severity', 'log-period'].forEach(id => {
+        document.getElementById(id).addEventListener('change', searchLogs);
+    });
+</script>
+{{end}}

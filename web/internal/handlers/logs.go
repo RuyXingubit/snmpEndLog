@@ -1,0 +1,185 @@
+package handlers
+
+import (
+	"context"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"snmpendlog-web/internal/db"
+)
+
+// LogEntry represents a syslog entry for templates and API.
+type LogEntry struct {
+	Time     time.Time `json:"time"`
+	Host     string    `json:"host"`
+	Severity string    `json:"severity"`
+	AppName  string    `json:"app_name"`
+	Message  string    `json:"message"`
+}
+
+// LogSearchResult holds paginated log search results.
+type LogSearchResult struct {
+	Logs       []LogEntry `json:"logs"`
+	Total      int        `json:"total"`
+	Page       int        `json:"page"`
+	PerPage    int        `json:"per_page"`
+	HasMore    bool       `json:"has_more"`
+}
+
+// SeverityCount represents log count by severity.
+type SeverityCount struct {
+	Severity string `json:"severity"`
+	Count    int    `json:"count"`
+}
+
+// HandleLogs renders the log viewer page.
+func HandleLogs(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, "logs.html", map[string]interface{}{
+		"Title": "Logs",
+	}, r)
+}
+
+// HandleAPILogs returns paginated, filtered logs as JSON.
+// GET /api/logs?host=X&severity=error&q=text&period=1h&page=1&per_page=50
+func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	host := strings.TrimSpace(q.Get("host"))
+	severity := strings.TrimSpace(q.Get("severity"))
+	search := strings.TrimSpace(q.Get("q"))
+	period := parsePeriod(q.Get("period"))
+	page, _ := strconv.Atoi(q.Get("page"))
+	perPage, _ := strconv.Atoi(q.Get("per_page"))
+
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 200 {
+		perPage = 50
+	}
+	offset := (page - 1) * perPage
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	// Build dynamic query
+	where := []string{"time > NOW() - $1::interval"}
+	args := []interface{}{period}
+	argIdx := 2
+
+	if host != "" {
+		where = append(where, "host = $"+strconv.Itoa(argIdx))
+		args = append(args, host)
+		argIdx++
+	}
+
+	if severity != "" {
+		where = append(where, "severity_name = $"+strconv.Itoa(argIdx))
+		args = append(args, severity)
+		argIdx++
+	}
+
+	if search != "" {
+		where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
+		args = append(args, search)
+		argIdx++
+	}
+
+	whereClause := strings.Join(where, " AND ")
+
+	// Count total
+	var total int
+	countQuery := "SELECT COUNT(*) FROM logs WHERE " + whereClause
+	_ = db.Pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+
+	// Fetch page
+	query := "SELECT time, host, COALESCE(severity_name, 'unknown'), COALESCE(app_name, ''), message FROM logs WHERE " +
+		whereClause + " ORDER BY time DESC LIMIT $" + strconv.Itoa(argIdx) + " OFFSET $" + strconv.Itoa(argIdx+1)
+	args = append(args, perPage, offset)
+
+	rows, err := db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	var logs []LogEntry
+	for rows.Next() {
+		var entry LogEntry
+		if err := rows.Scan(&entry.Time, &entry.Host, &entry.Severity, &entry.AppName, &entry.Message); err != nil {
+			continue
+		}
+		logs = append(logs, entry)
+	}
+
+	jsonResponse(w, http.StatusOK, LogSearchResult{
+		Logs:    logs,
+		Total:   total,
+		Page:    page,
+		PerPage: perPage,
+		HasMore: offset+perPage < total,
+	})
+}
+
+// HandleAPILogStats returns log counts by severity for the dashboard.
+// GET /api/logs/stats?period=1h
+func HandleAPILogStats(w http.ResponseWriter, r *http.Request) {
+	period := parsePeriod(r.URL.Query().Get("period"))
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	rows, err := db.Pool.Query(ctx, `
+		SELECT COALESCE(severity_name, 'unknown') AS sev, COUNT(*)
+		FROM logs
+		WHERE time > NOW() - $1::interval
+		GROUP BY sev
+		ORDER BY COUNT(*) DESC
+	`, period)
+	if err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	var stats []SeverityCount
+	for rows.Next() {
+		var sc SeverityCount
+		if err := rows.Scan(&sc.Severity, &sc.Count); err != nil {
+			continue
+		}
+		stats = append(stats, sc)
+	}
+
+	jsonResponse(w, http.StatusOK, stats)
+}
+
+// HandleAPILogHosts returns distinct hosts that have sent logs.
+// GET /api/logs/hosts
+func HandleAPILogHosts(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	rows, err := db.Pool.Query(ctx, `
+		SELECT DISTINCT host FROM logs
+		WHERE time > NOW() - INTERVAL '7 days'
+		ORDER BY host
+	`)
+	if err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	var hosts []string
+	for rows.Next() {
+		var h string
+		if err := rows.Scan(&h); err == nil {
+			hosts = append(hosts, h)
+		}
+	}
+
+	jsonResponse(w, http.StatusOK, hosts)
+}

@@ -1,0 +1,51 @@
+{{define "layout.html"}}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="snmpEndLog — Monitor SNMP e Coletor de Logs Leve">
+    <title>{{.Title}} — snmpEndLog</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div class="app-layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">📡</div>
+            <h1>snmpEndLog</h1>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section">Monitoramento</div>
+            <a href="/" class="nav-item{{if eq .Title "Dashboard"}} active{{end}}">
+                <span class="nav-icon">📊</span>
+                Dashboard
+            </a>
+            <a href="/devices" class="nav-item{{if eq .Title "Equipamentos"}} active{{end}}">
+                <span class="nav-icon">🖥️</span>
+                Equipamentos
+            </a>
+            <a href="/logs" class="nav-item{{if eq .Title "Logs"}} active{{end}}">
+                <span class="nav-icon">📋</span>
+                Logs
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="user-avatar">{{if .Username}}{{slice .Username 0 1}}{{else}}?{{end}}</div>
+                <div>
+                    <div style="font-weight: 500; color: var(--text-primary);">{{.Username}}</div>
+                    <div style="font-size: 0.7rem;">{{.Role}}</div>
+                </div>
+                <a href="/logout" style="margin-left: auto; font-size: 0.8rem;" title="Sair">🚪</a>
+            </div>
+        </div>
+    </aside>
+    <main class="main-content">
+        {{template "content" .}}
+    </main>
+</div>
+</body>
+</html>
+{{end}}

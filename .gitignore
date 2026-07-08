@@ -1,0 +1,41 @@
+# snmpEndLog
+
+# Dependencies
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Go
+web/web
+web/tmp/
+
+# Logs
+*.log
+
+# Database
+data/

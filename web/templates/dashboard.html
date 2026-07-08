@@ -1,0 +1,120 @@
+{{template "layout.html" .}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>📊 Dashboard</h2>
+    <div class="header-actions">
+        <span class="text-muted" style="font-size: 0.8rem;" id="last-update"></span>
+    </div>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card accent">
+        <div class="stat-icon">🖥️</div>
+        <div class="stat-value">{{.Data.TotalDevices}}</div>
+        <div class="stat-label">Equipamentos</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-icon">✅</div>
+        <div class="stat-value">{{.Data.DevicesUp}}</div>
+        <div class="stat-label">Online</div>
+    </div>
+    <div class="stat-card red">
+        <div class="stat-icon">❌</div>
+        <div class="stat-value">{{.Data.DevicesDown}}</div>
+        <div class="stat-label">Offline</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-icon">🔌</div>
+        <div class="stat-value">{{.Data.InterfacesUp}} / {{.Data.TotalInterfaces}}</div>
+        <div class="stat-label">Interfaces Up</div>
+    </div>
+</div>
+
+<!-- Main Grid -->
+<div class="dashboard-grid">
+    <!-- Top Traffic -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">🔥 Top Tráfego</span>
+        </div>
+        {{if .Data.TopTraffic}}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Equipamento</th>
+                        <th>Interface</th>
+                        <th>↓ In</th>
+                        <th>↑ Out</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Data.TopTraffic}}
+                    <tr>
+                        <td>{{.DeviceName}}</td>
+                        <td class="mono">{{.IfDescr}}</td>
+                        <td class="mono text-green">{{formatBps .InBps}}</td>
+                        <td class="mono text-accent">{{formatBps .OutBps}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="empty-state">
+            <div class="empty-icon">📊</div>
+            <h3>Sem dados de tráfego</h3>
+            <p>Adicione equipamentos para começar a coletar métricas.</p>
+        </div>
+        {{end}}
+    </div>
+
+    <!-- Recent Logs -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">📋 Logs Recentes</span>
+            <a href="/logs" class="btn btn-sm">Ver todos</a>
+        </div>
+        {{if .Data.RecentLogs}}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Hora</th>
+                        <th>Host</th>
+                        <th>Severidade</th>
+                        <th>Mensagem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Data.RecentLogs}}
+                    <tr>
+                        <td class="log-time">{{formatTime .Time}}</td>
+                        <td>{{.Host}}</td>
+                        <td><span class="badge {{severityClass .Severity}}">{{.Severity}}</span></td>
+                        <td class="log-message">{{.Message}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h3>Sem logs recebidos</h3>
+            <p>Configure seus equipamentos para enviar syslog para este servidor.</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<script>
+    document.getElementById('last-update').textContent = 
+        'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+    
+    // Auto-refresh every 30s
+    setTimeout(() => location.reload(), 30000);
+</script>
+{{end}}

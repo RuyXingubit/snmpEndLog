@@ -1,0 +1,201 @@
+{{template "layout.html" .}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>🖥️ Equipamentos</h2>
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="document.getElementById('add-modal').classList.add('active')">
+            + Adicionar
+        </button>
+    </div>
+</div>
+
+{{if .Devices}}
+<div class="card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Hostname</th>
+                    <th>IP</th>
+                    <th>Fabricante</th>
+                    <th>SNMP</th>
+                    <th>Sys Name</th>
+                    <th>Intervalo</th>
+                    <th>Último Poll</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Devices}}
+                <tr>
+                    <td>
+                        {{if eq .Status "up"}}<span class="badge badge-up">UP</span>
+                        {{else if eq .Status "down"}}<span class="badge badge-down">DOWN</span>
+                        {{else}}<span class="badge badge-unknown">???</span>{{end}}
+                    </td>
+                    <td><a href="/devices/{{.ID}}"><strong>{{.Hostname}}</strong></a></td>
+                    <td class="mono">{{.IPAddress}}</td>
+                    <td>{{if .Vendor}}{{deref .Vendor}}{{else}}<span class="text-muted">—</span>{{end}}</td>
+                    <td>{{.SNMPVersion}}</td>
+                    <td>{{if .SysName}}{{deref .SysName}}{{else}}<span class="text-muted">—</span>{{end}}</td>
+                    <td class="mono">{{.PollInterval}}s</td>
+                    <td class="log-time">
+                        {{if .LastPolledAt}}{{formatTime (derefTime .LastPolledAt)}}{{else}}<span class="text-muted">Nunca</span>{{end}}
+                    </td>
+                    <td>
+                        <a href="/devices/{{.ID}}" class="btn btn-sm">Detalhes</a>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="openDeleteModal({{.ID}}, '{{.Hostname}}')">Remover</button>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{else}}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-icon">🖥️</div>
+        <h3>Nenhum equipamento cadastrado</h3>
+        <p>Clique em "Adicionar" para cadastrar seu primeiro equipamento de rede.</p>
+    </div>
+</div>
+{{end}}
+
+<!-- Add Device Modal -->
+<div class="modal-overlay" id="add-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Adicionar Equipamento</h3>
+            <button class="modal-close" onclick="document.getElementById('add-modal').classList.remove('active')">✕</button>
+        </div>
+        <form method="POST" action="/devices/add">
+            <div class="form-group">
+                <label class="form-label" for="hostname">Hostname *</label>
+                <input type="text" class="form-input" id="hostname" name="hostname" required
+                       placeholder="Ex: sw-core-01">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="ip_address">Endereço IP *</label>
+                <input type="text" class="form-input" id="ip_address" name="ip_address" required
+                       placeholder="Ex: 192.168.1.1" pattern="[0-9.]+">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="snmp_version">Versão SNMP</label>
+                <select class="form-input form-select" id="snmp_version" name="snmp_version"
+                        onchange="toggleSNMPFields(this.value)">
+                    <option value="v2c">SNMPv2c</option>
+                    <option value="v3">SNMPv3</option>
+                </select>
+            </div>
+
+            <!-- SNMPv2c fields -->
+            <div id="v2c-fields">
+                <div class="form-group">
+                    <label class="form-label" for="community">Community String</label>
+                    <input type="text" class="form-input" id="community" name="community"
+                           placeholder="public" value="public">
+                </div>
+            </div>
+
+            <!-- SNMPv3 fields -->
+            <div id="v3-fields" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label" for="snmpv3_user">Usuário SNMPv3</label>
+                    <input type="text" class="form-input" id="snmpv3_user" name="snmpv3_user">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="snmpv3_sec_level">Nível de Segurança</label>
+                    <select class="form-input form-select" id="snmpv3_sec_level" name="snmpv3_sec_level">
+                        <option value="authPriv">authPriv (Autenticação + Criptografia)</option>
+                        <option value="authNoPriv">authNoPriv (Apenas Autenticação)</option>
+                        <option value="noAuthNoPriv">noAuthNoPriv (Sem Segurança)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="snmpv3_auth_proto">Protocolo Auth</label>
+                    <select class="form-input form-select" id="snmpv3_auth_proto" name="snmpv3_auth_proto">
+                        <option value="SHA">SHA</option>
+                        <option value="SHA256">SHA256</option>
+                        <option value="SHA512">SHA512</option>
+                        <option value="MD5">MD5</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="snmpv3_auth_pass">Senha Auth</label>
+                    <input type="password" class="form-input" id="snmpv3_auth_pass" name="snmpv3_auth_pass"
+                           autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="snmpv3_priv_proto">Protocolo Priv</label>
+                    <select class="form-input form-select" id="snmpv3_priv_proto" name="snmpv3_priv_proto">
+                        <option value="AES">AES128</option>
+                        <option value="AES256">AES256</option>
+                        <option value="DES">DES</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="snmpv3_priv_pass">Senha Priv</label>
+                    <input type="password" class="form-input" id="snmpv3_priv_pass" name="snmpv3_priv_pass"
+                           autocomplete="new-password">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="poll_interval">Intervalo de Polling (segundos)</label>
+                <input type="number" class="form-input" id="poll_interval" name="poll_interval"
+                       value="300" min="30" max="3600">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                Adicionar Equipamento
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Device Modal -->
+<div class="modal-overlay" id="delete-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 style="color: #ef4444;">Remover Equipamento</h3>
+            <button class="modal-close" onclick="document.getElementById('delete-modal').classList.remove('active')">✕</button>
+        </div>
+        <div style="padding: 1.25rem;">
+            <p>Tem certeza que deseja remover <strong id="delete-hostname"></strong>?</p>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">Esta ação removerá o equipamento e parará a coleta de logs e métricas. Não é possível desfazer.</p>
+            <form method="POST" action="/devices/delete" style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+                <input type="hidden" name="device_id" id="delete-device-id">
+                <button type="button" class="btn" style="background: var(--surface-2); color: var(--text);" onclick="document.getElementById('delete-modal').classList.remove('active')">Cancelar</button>
+                <button type="submit" class="btn btn-danger" style="background: #ef4444; color: white;">Confirmar Remoção</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSNMPFields(version) {
+    const v2cFields = document.getElementById('v2c-fields');
+    const v3Fields = document.getElementById('v3-fields');
+    
+    if (version === 'v2c') {
+        v2cFields.style.display = 'block';
+        v3Fields.style.display = 'none';
+        document.getElementById('community').required = true;
+    } else {
+        v2cFields.style.display = 'none';
+        v3Fields.style.display = 'block';
+        document.getElementById('community').required = false;
+    }
+}
+
+function openDeleteModal(id, hostname) {
+    document.getElementById('delete-hostname').textContent = hostname;
+    document.getElementById('delete-device-id').value = id;
+    document.getElementById('delete-modal').classList.add('active');
+}
+</script>
+
+{{end}}
