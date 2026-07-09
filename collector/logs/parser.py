@@ -66,25 +66,11 @@ def decode_priority(pri: int) -> tuple[int, int]:
 def parse_rfc3164_timestamp(ts_str: str) -> datetime:
     """Parse BSD syslog timestamp (Mmm dd HH:MM:SS).
 
-    Note: RFC 3164 has no year. We assume current year.
+    RFC 3164 timestamps lack timezone and year, which causes incorrect
+    storage for devices in non-UTC timezones.  We use the server receive
+    time instead, which is always accurate.
     """
-    try:
-        parts = ts_str.split()
-        month = MONTH_MAP.get(parts[0], 1)
-        day = int(parts[1])
-        time_parts = parts[2].split(":")
-        now = datetime.now(timezone.utc)
-        return datetime(
-            year=now.year,
-            month=month,
-            day=day,
-            hour=int(time_parts[0]),
-            minute=int(time_parts[1]),
-            second=int(time_parts[2]),
-            tzinfo=timezone.utc,
-        )
-    except (ValueError, IndexError):
-        return datetime.now(timezone.utc)
+    return datetime.now(timezone.utc)
 
 
 def parse_syslog_message(raw: str, source_ip: str = "") -> dict[str, Any]:
