@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.3.0...v1.3.1) (2026-07-09)
+
+
+### Bug Fixes
+
+* reset pagination on severity filter change ([a1538bf](https://github.com/RuyXingubit/snmpEndLog/commit/a1538bf4f844d84fc3ac6490323a016194919773))
+
 # [1.3.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.2.3...v1.3.0) (2026-07-09)
 
 
