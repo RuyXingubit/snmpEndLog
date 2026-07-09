@@ -4,7 +4,7 @@
   "description": "NMS using SNMP",
   "repository": {
     "type": "git",
-    "url": "https://github.com/xingubit/snmpendlog.git"
+    "url": "https://github.com/RuyXingubit/snmpEndLog.git"
   },
   "private": true
 }
