@@ -76,17 +76,25 @@ func Analyze(messages []Message) (string, error) {
 		return "", fmt.Errorf("GEMINI_API_KEY not configured")
 	}
 
-	// Build contents array from messages
+	// Build contents, merging consecutive same-role messages
+	// (Gemini requires strict user/model alternation)
 	var contents []geminiContent
 	for _, m := range messages {
 		role := "user"
 		if m.Role == "assistant" {
 			role = "model"
 		}
-		contents = append(contents, geminiContent{
-			Role:  role,
-			Parts: []geminiPart{{Text: m.Content}},
-		})
+
+		// Merge with previous if same role
+		if len(contents) > 0 && contents[len(contents)-1].Role == role {
+			prev := &contents[len(contents)-1]
+			prev.Parts[0].Text += "\n\n" + m.Content
+		} else {
+			contents = append(contents, geminiContent{
+				Role:  role,
+				Parts: []geminiPart{{Text: m.Content}},
+			})
+		}
 	}
 
 	reqBody := geminiRequest{
