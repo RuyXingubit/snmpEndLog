@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/RuyXingubit/snmpEndLog/compare/v1.0.1...v1.0.2) (2026-07-09)
+
+
+### Bug Fixes
+
+* include interface alias in dashboard and improve table sorting behavior ([6188959](https://github.com/RuyXingubit/snmpEndLog/commit/618895999af6d4625e0ed183f97ec174fe2b442e))
+
 ## [1.0.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.0.0...v1.0.1) (2026-07-09)
 
 
