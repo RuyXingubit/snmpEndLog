@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/RuyXingubit/snmpEndLog/compare/v1.1.2...v1.1.3) (2026-07-09)
+
+
+### Bug Fixes
+
+* use server receive time for RFC 3164 syslog timestamps ([012beeb](https://github.com/RuyXingubit/snmpEndLog/commit/012beebfa7e2ae8ebf85c50d1272359c9d3d3b1c))
+
 ## [1.1.2](https://github.com/RuyXingubit/snmpEndLog/compare/v1.1.1...v1.1.2) (2026-07-09)
 
 
