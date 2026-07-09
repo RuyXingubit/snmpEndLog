@@ -85,6 +85,7 @@ services:
 
 networks:
   nms_network:
+    name: nms_network
     driver: bridge
 
 volumes:
