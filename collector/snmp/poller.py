@@ -747,8 +747,18 @@ class SNMPPoller:
 
             logger.info("Starting poll cycle for %d devices", len(devices))
 
-            # Poll all devices concurrently
-            tasks = [self.poll_device(d) for d in devices]
+            # Poll all devices concurrently (120s timeout per device)
+            async def _poll_with_timeout(d: dict) -> None:
+                try:
+                    await asyncio.wait_for(self.poll_device(d), timeout=120)
+                except asyncio.TimeoutError:
+                    logger.error(
+                        "Poll TIMEOUT for %s (%s) after 120s",
+                        d["hostname"], clean_ip(d["ip_address"]),
+                    )
+                    db.update_device_status(d["id"], "down")
+
+            tasks = [_poll_with_timeout(d) for d in devices]
             await asyncio.gather(*tasks, return_exceptions=True)
 
             # Wait for the shortest interval before next cycle
