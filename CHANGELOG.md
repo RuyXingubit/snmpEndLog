@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.2.0...v1.2.1) (2026-07-09)
+
+
+### Bug Fixes
+
+* parse Huawei syslog timestamps with year in RFC 3164 ([a2ecffc](https://github.com/RuyXingubit/snmpEndLog/commit/a2ecffcfc66017053d513cb4c52fa3c185f68c73))
+
 # [1.2.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.1.3...v1.2.0) (2026-07-09)
 
 
