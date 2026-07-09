@@ -1,0 +1,130 @@
+{{template "layout.html" .}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>👥 Usuários</h2>
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="document.getElementById('add-user-modal').classList.add('active')">
+            + Novo Usuário
+        </button>
+    </div>
+</div>
+
+{{if .SuccessMsg}}
+<div class="card mb-md" style="background-color: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--status-up);">
+    <div style="padding: 1rem;">
+        <p style="margin: 0; color: var(--status-up);">✅ {{.SuccessMsg}}</p>
+    </div>
+</div>
+{{end}}
+
+{{if .ErrorMsg}}
+<div class="card mb-md" style="background-color: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--status-down);">
+    <div style="padding: 1rem;">
+        <p style="margin: 0; color: var(--status-down);">❌ {{.ErrorMsg}}</p>
+    </div>
+</div>
+{{end}}
+
+<div class="card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Usuário</th>
+                    <th>Perfil</th>
+                    <th>Criado em</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Users}}
+                <tr>
+                    <td class="mono">{{.ID}}</td>
+                    <td><strong>{{.Username}}</strong></td>
+                    <td>
+                        {{if eq .Role "admin"}}
+                            <span class="badge badge-up">Admin</span>
+                        {{else}}
+                            <span class="badge" style="background: var(--surface-light); color: var(--text);">Viewer</span>
+                        {{end}}
+                    </td>
+                    <td class="log-time">{{formatTime .CreatedAt}}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-danger"
+                                onclick="openDeleteUserModal({{.ID}}, '{{.Username}}')"
+                                {{if eq .Username $.Username}}disabled title="Não é possível remover sua própria conta"{{end}}>
+                            Remover
+                        </button>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="add-user-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Novo Usuário</h3>
+            <button class="modal-close" onclick="document.getElementById('add-user-modal').classList.remove('active')">✕</button>
+        </div>
+        <form method="POST" action="/users/create">
+            <div class="form-group">
+                <label class="form-label" for="new-username">Nome de Usuário *</label>
+                <input type="text" class="form-input" id="new-username" name="username" required
+                       placeholder="Ex: joao.silva" minlength="3" maxlength="64"
+                       pattern="[a-zA-Z0-9._-]+" title="Use letras, números, _, - ou ponto">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="new-password">Senha *</label>
+                <input type="password" class="form-input" id="new-password" name="password" required
+                       minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="new-role">Perfil *</label>
+                <select class="form-input form-select" id="new-role" name="role">
+                    <option value="viewer">Viewer — Apenas visualização</option>
+                    <option value="admin">Admin — Acesso total</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+                Criar Usuário
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Delete User Modal -->
+<div class="modal-overlay" id="delete-user-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 style="color: #ef4444;">Remover Usuário</h3>
+            <button class="modal-close" onclick="document.getElementById('delete-user-modal').classList.remove('active')">✕</button>
+        </div>
+        <div style="padding: 1.25rem;">
+            <p>Tem certeza que deseja remover o usuário <strong id="delete-user-name"></strong>?</p>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
+                O usuário perderá o acesso ao sistema imediatamente. Esta ação não pode ser desfeita.
+            </p>
+            <form method="POST" action="/users/delete" style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+                <input type="hidden" name="user_id" id="delete-user-id">
+                <button type="button" class="btn" style="background: var(--surface-2); color: var(--text);"
+                        onclick="document.getElementById('delete-user-modal').classList.remove('active')">Cancelar</button>
+                <button type="submit" class="btn btn-danger" style="background: #ef4444; color: white;">Confirmar Remoção</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openDeleteUserModal(id, username) {
+    document.getElementById('delete-user-name').textContent = username;
+    document.getElementById('delete-user-id').value = id;
+    document.getElementById('delete-user-modal').classList.add('active');
+}
+</script>
+{{end}}

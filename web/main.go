@@ -57,15 +57,29 @@ func main() {
 	mux.HandleFunc("/login", handlers.HandleLogin)
 	mux.HandleFunc("/logout", handlers.HandleLogout)
 
-	// Protected page routes
+	// Protected page routes (all authenticated users)
 	authMux := http.NewServeMux()
 	authMux.HandleFunc("/", handlers.HandleDashboard)
 	authMux.HandleFunc("/devices", handlers.HandleDevices)
-	authMux.HandleFunc("/devices/add", handlers.HandleDeviceAdd)
-	authMux.HandleFunc("/devices/edit", handlers.HandleDeviceEdit)
-	authMux.HandleFunc("/devices/delete", handlers.HandleDeviceDelete)
 	authMux.HandleFunc("/devices/", handlers.HandleDeviceDetail)
 	authMux.HandleFunc("/logs", handlers.HandleLogs)
+
+	// Admin-only page routes (wrapped with RequireAdmin)
+	adminMux := http.NewServeMux()
+	adminMux.HandleFunc("/devices/add", handlers.HandleDeviceAdd)
+	adminMux.HandleFunc("/devices/edit", handlers.HandleDeviceEdit)
+	adminMux.HandleFunc("/devices/delete", handlers.HandleDeviceDelete)
+	adminMux.HandleFunc("/users", handlers.HandleUsers)
+	adminMux.HandleFunc("/users/create", handlers.HandleUserCreate)
+	adminMux.HandleFunc("/users/delete", handlers.HandleUserDelete)
+
+	authMux.Handle("/devices/add", middleware.RequireAdmin(adminMux))
+	authMux.Handle("/devices/edit", middleware.RequireAdmin(adminMux))
+	authMux.Handle("/devices/delete", middleware.RequireAdmin(adminMux))
+	authMux.Handle("/users", middleware.RequireAdmin(adminMux))
+	authMux.Handle("/users/", middleware.RequireAdmin(adminMux))
+	authMux.Handle("/users/create", middleware.RequireAdmin(adminMux))
+	authMux.Handle("/users/delete", middleware.RequireAdmin(adminMux))
 
 	mux.Handle("/", middleware.RequireAuth(authMux))
 

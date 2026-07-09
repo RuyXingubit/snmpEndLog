@@ -10,7 +10,7 @@
         {{else}}<span class="badge badge-unknown">???</span>{{end}}
     </h2>
     <div class="header-actions">
-        <a href="/devices/{{.Device.ID}}/edit" class="btn btn-sm" style="margin-right: 8px;">⚙️ Configurações</a>
+        {{if eq .Role "admin"}}<a href="/devices/{{.Device.ID}}/edit" class="btn btn-sm" style="margin-right: 8px;">⚙️ Configurações</a>{{end}}
         <div class="chart-controls" id="period-selector">
             <button class="chart-period" data-period="15m">15m</button>
             <button class="chart-period active" data-period="1h">1h</button>

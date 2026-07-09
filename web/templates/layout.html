@@ -34,6 +34,13 @@
                 <span class="nav-icon">📋</span>
                 Logs
             </a>
+            {{if eq .Role "admin"}}
+            <div class="nav-section" style="margin-top: 1rem;">Administração</div>
+            <a href="/users" class="nav-item{{if eq .Title "Usuários"}} active{{end}}">
+                <span class="nav-icon">👥</span>
+                Usuários
+            </a>
+            {{end}}
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-user">

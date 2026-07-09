@@ -164,3 +164,30 @@ func (lw *loggingResponseWriter) WriteHeader(code int) {
 	lw.statusCode = code
 	lw.ResponseWriter.WriteHeader(code)
 }
+
+// RequireAdmin is middleware that blocks non-admin users from accessing admin-only routes.
+// It expects RequireAuth to have already run (claims in context).
+func RequireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims := GetClaims(r)
+		if claims == nil || claims.Role != "admin" {
+			http.Error(w, "Acesso negado: permissão de administrador necessária.", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RequireAdminAPI is middleware for API endpoints that blocks non-admin users with a JSON 403.
+func RequireAdminAPI(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims := GetClaims(r)
+		if claims == nil || claims.Role != "admin" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte(`{"error":"admin access required"}`))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

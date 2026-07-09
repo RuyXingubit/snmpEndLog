@@ -3,11 +3,13 @@
 {{define "content"}}
 <div class="page-header">
     <h2>🖥️ Equipamentos</h2>
+    {{if eq .Role "admin"}}
     <div class="header-actions">
         <button class="btn btn-primary" onclick="document.getElementById('add-modal').classList.add('active')">
             + Adicionar
         </button>
     </div>
+    {{end}}
 </div>
 
 {{if .Devices}}
@@ -46,7 +48,9 @@
                     </td>
                     <td>
                         <a href="/devices/{{.ID}}" class="btn btn-sm">Detalhes</a>
+                        {{if eq $.Role "admin"}}
                         <button type="button" class="btn btn-sm btn-danger" onclick="openDeleteModal({{.ID}}, '{{.Hostname}}')">Remover</button>
+                        {{end}}
                     </td>
                 </tr>
                 {{end}}
