@@ -1,0 +1,12 @@
+# 1.0.0 (2026-07-09)
+
+
+### Bug Fixes
+
+* correct repository URL in package.json for semantic release ([2839610](https://github.com/RuyXingubit/snmpEndLog/commit/28396102672bf5a753033a8a7998316bd9fd0aca))
+
+
+### Features
+
+* configure production deployment with Caddy, Semantic Release and Docker Hub ([22771ec](https://github.com/RuyXingubit/snmpEndLog/commit/22771ecc713b3f14eb5aea9514ecc73641346f40))
+* initial commit of snmpEndLog with BGP and PPPoE monitoring ([b54c257](https://github.com/RuyXingubit/snmpEndLog/commit/b54c25745e7abb52c5d58d6b63d15cae1dd4a847))
