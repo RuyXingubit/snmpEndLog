@@ -25,6 +25,7 @@ type DashboardData struct {
 type TopTrafficEntry struct {
 	DeviceName string
 	IfDescr    string
+	IfAlias    string
 	InBps      float64
 	OutBps     float64
 }
@@ -77,7 +78,7 @@ func HandleDashboard(w http.ResponseWriter, r *http.Request) {
 			  AND in_bps IS NOT NULL
 			ORDER BY device_id, if_index, time DESC
 		)
-		SELECT d.hostname, i.if_descr, lt.in_bps, lt.out_bps
+		SELECT d.hostname, COALESCE(i.if_descr, ''), COALESCE(i.if_alias, ''), lt.in_bps, lt.out_bps
 		FROM latest_traffic lt
 		JOIN devices d ON d.id = lt.device_id
 		JOIN interfaces i ON i.device_id = lt.device_id AND i.if_index = lt.if_index
@@ -88,7 +89,7 @@ func HandleDashboard(w http.ResponseWriter, r *http.Request) {
 		defer trows.Close()
 		for trows.Next() {
 			var entry TopTrafficEntry
-			if err := trows.Scan(&entry.DeviceName, &entry.IfDescr, &entry.InBps, &entry.OutBps); err == nil {
+			if err := trows.Scan(&entry.DeviceName, &entry.IfDescr, &entry.IfAlias, &entry.InBps, &entry.OutBps); err == nil {
 				data.TopTraffic = append(data.TopTraffic, entry)
 			}
 		}

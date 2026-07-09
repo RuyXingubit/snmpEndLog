@@ -54,7 +54,10 @@
                     {{range .Data.TopTraffic}}
                     <tr>
                         <td>{{.DeviceName}}</td>
-                        <td class="mono">{{.IfDescr}}</td>
+                        <td class="mono">
+                            {{.IfDescr}}
+                            {{if .IfAlias}}<br><span class="text-muted" style="font-size: 0.8rem;">{{.IfAlias}}</span>{{end}}
+                        </td>
                         <td class="mono text-green">{{formatBps .InBps}}</td>
                         <td class="mono text-accent">{{formatBps .OutBps}}</td>
                     </tr>
