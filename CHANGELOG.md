@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.1.0...v1.1.1) (2026-07-09)
+
+
+### Bug Fixes
+
+* update device status to 'up' when ping is reachable ([961afea](https://github.com/RuyXingubit/snmpEndLog/commit/961afea05c1733f6f0bdb50705bc2b64f6a69fe9))
+
 # [1.1.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.0.2...v1.1.0) (2026-07-09)
 
 
