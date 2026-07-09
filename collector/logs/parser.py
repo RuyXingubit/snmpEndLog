@@ -26,10 +26,11 @@ SEVERITY_NAMES = {
 
 # ============================================
 # RFC 3164 pattern: <PRI>TIMESTAMP HOSTNAME APP[PID]: MESSAGE
+# Supports optional year (e.g. Huawei VRP: "Jul  9 2026 17:33:50")
 # ============================================
 RFC3164_RE = re.compile(
     r"<(\d{1,3})>"                          # PRI
-    r"(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+"  # Timestamp (Mmm dd HH:MM:SS)
+    r"(\w{3}\s+\d{1,2}\s+(?:\d{4}\s+)?\d{2}:\d{2}:\d{2})\s+"  # Timestamp (with optional year)
     r"(\S+)\s+"                              # Hostname
     r"(.+)"                                   # Message (includes app name)
 )
