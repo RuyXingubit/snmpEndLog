@@ -49,16 +49,30 @@
     </div>
     <div class="stat-card purple" style="--before-bg: var(--purple);">
         <div class="stat-icon">🔧</div>
-        <div class="stat-value" style="font-size: 1.2rem;">{{.Device.SNMPVersion}}</div>
+        <div class="stat-value" style="font-size: 1.2rem;">
+            {{if .Device.SnmpEnabled}}{{.Device.SNMPVersion}}{{else}}N/A{{end}}
+        </div>
         <div class="stat-label">Versão SNMP</div>
     </div>
+    {{if .Device.SnmpEnabled}}
     <div class="stat-card accent" id="pppoe-card" style="display: none;">
         <div class="stat-icon">👥</div>
         <div class="stat-value" style="font-size: 1.2rem;" id="pppoe-value">0</div>
         <div class="stat-label">PPPoE Online</div>
     </div>
+    {{end}}
 </div>
 
+{{if not .Device.SnmpEnabled}}
+<div class="card mb-md" style="background-color: var(--surface-light); border-left: 4px solid var(--purple);">
+    <div style="padding: 1rem;">
+        <h4 style="margin: 0; color: var(--text);">ℹ️ SNMP Desabilitado</h4>
+        <p style="margin: 0.5rem 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
+            Este equipamento está configurado apenas para testes de ICMP (Ping). Informações de sistema, interfaces e métricas de tráfego estão desabilitadas.
+        </p>
+    </div>
+</div>
+{{else}}
 <!-- System Info -->
 <div class="card mb-md">
     <div class="card-header">
@@ -77,9 +91,11 @@
         </tbody>
     </table>
 </div>
+{{end}}
 
 <!-- Charts -->
 <div class="dashboard-grid">
+    {{if .Device.SnmpEnabled}}
     <div class="card">
         <div class="card-header">
             <span class="card-title">📈 CPU</span>
@@ -96,6 +112,15 @@
             <canvas id="chart-memory"></canvas>
         </div>
     </div>
+    <div class="card" id="temperature-chart-card" style="display: none;">
+        <div class="card-header">
+            <span class="card-title">🌡️ Temperatura</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart-temperature"></canvas>
+        </div>
+    </div>
+    {{end}}
     <div class="card">
         <div class="card-header">
             <span class="card-title">📶 Latência (Ping)</span>
@@ -104,6 +129,7 @@
             <canvas id="chart-ping"></canvas>
         </div>
     </div>
+    {{if .Device.SnmpEnabled}}
     <div class="card" id="pppoe-chart-card" style="display: none;">
         <div class="card-header">
             <span class="card-title">👥 Usuários PPPoE</span>
@@ -112,8 +138,10 @@
             <canvas id="chart-pppoe"></canvas>
         </div>
     </div>
+    {{end}}
 </div>
 
+{{if .Device.SnmpEnabled}}
 {{if .BgpPeers}}
 <!-- BGP Peers Table -->
 <div class="card">
@@ -127,9 +155,11 @@
                     <th>Peer IP</th>
                     <th>AS Remoto</th>
                     <th>Status</th>
+                    <th>Tempo</th>
                     <th>Mensagens IN</th>
                     <th>Mensagens OUT</th>
                     <th>Prefixos Recebidos</th>
+                    <th>Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -138,25 +168,29 @@
                     <td>{{.PeerAddr}}</td>
                     <td>{{if .PeerAs}}{{.PeerAs}}{{else}}-{{end}}</td>
                     <td>
-                        {{if eq .State 6}}
-                            <span class="status-badge status-up">Established</span>
-                        {{else if eq .State 1}}
-                            <span class="status-badge status-down">Idle</span>
-                        {{else if eq .State 2}}
-                            <span class="status-badge status-down">Connect</span>
-                        {{else if eq .State 3}}
-                            <span class="status-badge status-down">Active</span>
-                        {{else if eq .State 4}}
-                            <span class="status-badge status-down">OpenSent</span>
-                        {{else if eq .State 5}}
-                            <span class="status-badge status-down">OpenConfirm</span>
+                        {{if eq (derefInt .State) 6}}
+                            <span class="badge badge-up">Established</span>
+                        {{else if eq (derefInt .State) 1}}
+                            <span class="badge badge-down">Idle</span>
+                        {{else if eq (derefInt .State) 2}}
+                            <span class="badge badge-down">Connect</span>
+                        {{else if eq (derefInt .State) 3}}
+                            <span class="badge badge-down">Active</span>
+                        {{else if eq (derefInt .State) 4}}
+                            <span class="badge badge-down">OpenSent</span>
+                        {{else if eq (derefInt .State) 5}}
+                            <span class="badge badge-down">OpenConfirm</span>
                         {{else}}
-                            <span class="status-badge status-unknown">Unknown</span>
+                            <span class="badge badge-unknown">Unknown</span>
                         {{end}}
                     </td>
+                    <td>{{if .FsmEstablishedTime}}{{formatDurationSeconds (derefInt64 .FsmEstablishedTime)}}{{else}}-{{end}}</td>
                     <td>{{if .InUpdates}}{{.InUpdates}}{{else}}-{{end}}</td>
                     <td>{{if .OutUpdates}}{{.OutUpdates}}{{else}}-{{end}}</td>
                     <td>{{if .PrefixesReceived}}<strong>{{.PrefixesReceived}}</strong>{{else}}-{{end}}</td>
+                    <td>
+                        <button class="btn btn-sm" onclick="showBgpChart({{$.Device.ID}}, '{{.PeerAddr}}')">📈</button>
+                    </td>
                 </tr>
                 {{end}}
             </tbody>
@@ -179,6 +213,8 @@
                     <th>Descrição</th>
                     <th>Alias</th>
                     <th>Status</th>
+                    <th>Modo L2</th>
+                    <th>VLAN</th>
                     <th>Velocidade</th>
                     <th>↓ In</th>
                     <th>↑ Out</th>
@@ -190,24 +226,30 @@
             <tbody>
                 {{range .Interfaces}}
                 <tr>
-                    <td class="mono">{{.IfIndex}}</td>
+                    <td class="mono" data-sort-value="{{.IfIndex}}">{{.IfIndex}}</td>
                     <td>{{if .IfDescr}}{{deref .IfDescr}}{{else}}—{{end}}</td>
                     <td class="text-muted">{{if .IfAlias}}{{deref .IfAlias}}{{else}}—{{end}}</td>
-                    <td>
+                    <td data-sort-value="{{.IfOperStatus}}">
                         {{if eq .IfOperStatus 1}}<span class="badge badge-up">UP</span>
                         {{else}}<span class="badge badge-down">DOWN</span>{{end}}
                     </td>
-                    <td class="mono">
+                    <td>
+                        {{if .VlanType}}<span class="badge" style="background: var(--surface-light); color: var(--text);">{{deref .VlanType}}</span>{{else}}—{{end}}
+                    </td>
+                    <td class="mono" data-sort-value="{{if .NativeVlan}}{{derefInt .NativeVlan}}{{else}}0{{end}}">
+                        {{if .NativeVlan}}{{derefInt .NativeVlan}}{{else}}—{{end}}
+                    </td>
+                    <td class="mono" data-sort-value="{{if .IfSpeed}}{{derefInt64 .IfSpeed}}{{else}}0{{end}}">
                         {{if .IfSpeed}}{{formatBps (toFloat64 (derefInt64 .IfSpeed))}}{{else}}—{{end}}
                     </td>
-                    <td class="mono text-green">
+                    <td class="mono text-green" data-sort-value="{{if .InBps}}{{derefFloat64 .InBps}}{{else}}0{{end}}">
                         {{if .InBps}}{{formatBps (derefFloat64 .InBps)}}{{else}}—{{end}}
                     </td>
-                    <td class="mono text-accent">
+                    <td class="mono text-accent" data-sort-value="{{if .OutBps}}{{derefFloat64 .OutBps}}{{else}}0{{end}}">
                         {{if .OutBps}}{{formatBps (derefFloat64 .OutBps)}}{{else}}—{{end}}
                     </td>
-                    <td class="mono">{{if .InErrors}}{{derefInt64 .InErrors}}{{else}}0{{end}}</td>
-                    <td class="mono">{{if .OutErrors}}{{derefInt64 .OutErrors}}{{else}}0{{end}}</td>
+                    <td class="mono" data-sort-value="{{if .InErrors}}{{derefInt64 .InErrors}}{{else}}0{{end}}">{{if .InErrors}}{{derefInt64 .InErrors}}{{else}}0{{end}}</td>
+                    <td class="mono" data-sort-value="{{if .OutErrors}}{{derefInt64 .OutErrors}}{{else}}0{{end}}">{{if .OutErrors}}{{derefInt64 .OutErrors}}{{else}}0{{end}}</td>
                     <td>
                         <button class="btn btn-sm" onclick="showTrafficChart({{$.Device.ID}}, {{.IfIndex}}, '{{if .IfDescr}}{{deref .IfDescr}}{{else}}if{{.IfIndex}}{{end}}')">
                             📈
@@ -226,6 +268,7 @@
     </div>
     {{end}}
 </div>
+{{end}}
 
 <!-- Traffic Chart Modal -->
 <div class="modal-overlay" id="traffic-modal">
@@ -252,6 +295,51 @@
             document.querySelectorAll('#period-selector .chart-period').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             initDeviceCharts(deviceId, this.dataset.period);
+        });
+    });
+
+    // Table Sorting
+    document.querySelectorAll('.table-container th').forEach((header) => {
+        header.style.cursor = 'pointer';
+        header.title = 'Clique para ordenar';
+        header.addEventListener('click', () => {
+            const index = Array.from(header.parentNode.children).indexOf(header);
+            const table = header.closest('table');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const isAsc = header.classList.contains('sort-asc');
+            
+            // Remove sort classes from all headers
+            table.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                th.textContent = th.textContent.replace(' ↑', '').replace(' ↓', '');
+            });
+            
+            // Add sort class to current header
+            header.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+            header.textContent += isAsc ? ' ↓' : ' ↑';
+
+            rows.sort((a, b) => {
+                const aCell = a.children[index];
+                const bCell = b.children[index];
+                
+                let aVal = aCell.getAttribute('data-sort-value') || aCell.textContent.trim();
+                let bVal = bCell.getAttribute('data-sort-value') || bCell.textContent.trim();
+                
+                // Try parsing as float if they are numbers
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    aVal = aNum;
+                    bVal = bNum;
+                }
+
+                if (aVal < bVal) return isAsc ? 1 : -1;
+                if (aVal > bVal) return isAsc ? -1 : 1;
+                return 0;
+            });
+
+            tbody.append(...rows);
         });
     });
 </script>

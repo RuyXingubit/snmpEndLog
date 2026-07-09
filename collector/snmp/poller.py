@@ -358,6 +358,27 @@ class SNMPPoller:
                     field_name, parser = hc_map[hc_oid]
                     interfaces[idx][field_name] = parser(val)
 
+        # Huawei L2IF MIB (VLANs)
+        if device.get("vendor") == "Huawei":
+            # Port Type
+            pt_rows = await self._snmp_walk(device, HuaweiOIDs.HW_L2_PORT_TYPE)
+            if pt_rows:
+                port_type_map = {1: "trunk", 2: "access", 3: "hybrid", 4: "fabric", 5: "qinq", 6: "desirable", 7: "auto"}
+                for oid_str, val in pt_rows:
+                    idx = extract_if_index(oid_str, HuaweiOIDs.HW_L2_PORT_TYPE)
+                    if idx and idx in interfaces:
+                        pt_val = safe_int(val)
+                        if pt_val in port_type_map:
+                            interfaces[idx]["vlan_type"] = port_type_map[pt_val]
+            
+            # PVID (Native VLAN)
+            pvid_rows = await self._snmp_walk(device, HuaweiOIDs.HW_L2_PVID)
+            if pvid_rows:
+                for oid_str, val in pvid_rows:
+                    idx = extract_if_index(oid_str, HuaweiOIDs.HW_L2_PVID)
+                    if idx and idx in interfaces:
+                        interfaces[idx]["native_vlan"] = safe_int(val)
+
         # Filter out PPPoE / Virtual interfaces to avoid bloating the DB
         filtered_interfaces = []
         pppoe_count = 0
@@ -405,15 +426,27 @@ class SNMPPoller:
                 if mems:
                     result["memory_percent"] = max(mems)
                     
+            # Temperature (walk hwEntityTemperature)
+            temp_rows = await self._snmp_walk(device, HuaweiOIDs.HW_TEMPERATURE)
+            if temp_rows:
+                temps = [safe_int(v) for _, v in temp_rows if safe_int(v) is not None]
+                if temps:
+                    result["temperature"] = max(temps)
+                    
             # PPPoE Online Users (Scalar)
             pppoe_res = await self._snmp_get(device, HuaweiOIDs.PPPOE_ONLINE)
             if pppoe_res and pppoe_res.get(HuaweiOIDs.PPPOE_ONLINE):
                 result["pppoe_online"] = safe_int(pppoe_res.get(HuaweiOIDs.PPPOE_ONLINE))
-            
-            logger.info(f"Huawei polled: CPU rows={len(cpu_rows) if cpu_rows else 0} MEM rows={len(mem_rows) if mem_rows else 0} PPPoE res={pppoe_res}")
+            else:
+                # Tenta OID alternativo (HW_TOTAL_PPPOE_ONLINE_NUM)
+                pppoe_res2 = await self._snmp_get(device, HuaweiOIDs.HW_TOTAL_PPPOE_ONLINE_NUM)
+                if pppoe_res2 and pppoe_res2.get(HuaweiOIDs.HW_TOTAL_PPPOE_ONLINE_NUM):
+                    result["pppoe_online"] = safe_int(pppoe_res2.get(HuaweiOIDs.HW_TOTAL_PPPOE_ONLINE_NUM))
+
+            logger.info(f"Huawei polled: CPU rows={len(cpu_rows) if cpu_rows else 0} MEM rows={len(mem_rows) if mem_rows else 0} TEMP rows={len(temp_rows) if temp_rows else 0} PPPoE res={result.get('pppoe_online')}")
                     
             # If Huawei returned valid specific data, return it
-            if result["cpu_percent"] is not None or result["memory_percent"] is not None or "pppoe_online" in result:
+            if result["cpu_percent"] is not None or result["memory_percent"] is not None or result.get("pppoe_online") is not None:
                 return result
 
         # CPU — average of all processor loads
@@ -421,6 +454,12 @@ class SNMPPoller:
         if cpu_rows:
             loads = [safe_int(val) for _, val in cpu_rows]
             result["cpu_percent"] = sum(loads) / len(loads) if loads else None
+
+        if vendor == "MikroTik":
+            temp_res = await self._snmp_get(device, MikroTikOIDs.HL_TEMPERATURE)
+            if temp_res and temp_res.get(MikroTikOIDs.HL_TEMPERATURE):
+                # MikroTik temperature is usually in decidegrees Celsius
+                result["temperature"] = safe_int(temp_res.get(MikroTikOIDs.HL_TEMPERATURE)) / 10.0
 
         # Memory — find RAM storage entry
         descr_rows = await self._snmp_walk(device, HostResourcesOIDs.HR_STORAGE_DESCR)
@@ -451,58 +490,7 @@ class SNMPPoller:
 
         return result
 
-    async def ping_device(self, device: dict) -> dict[str, Any]:
-        """Ping a device and return latency metrics."""
-        ip = clean_ip(device["ip_address"])
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "ping", "-c", "3", "-W", "2", ip,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
-            output = stdout.decode("utf-8", errors="replace")
 
-            if proc.returncode != 0:
-                return {
-                    "rtt_min": None, "rtt_avg": None, "rtt_max": None,
-                    "packet_loss": 100.0, "is_reachable": False,
-                }
-
-            # Parse ping output
-            result: dict[str, Any] = {
-                "is_reachable": True,
-                "packet_loss": 0.0,
-            }
-
-            for line in output.splitlines():
-                if "packet loss" in line:
-                    for part in line.split(","):
-                        part = part.strip()
-                        if "%" in part:
-                            try:
-                                result["packet_loss"] = float(
-                                    part.split("%")[0].split()[-1]
-                                )
-                            except (ValueError, IndexError):
-                                pass
-                if "min/avg/max" in line:
-                    try:
-                        stats = line.split("=")[1].strip().split("/")
-                        result["rtt_min"] = float(stats[0])
-                        result["rtt_avg"] = float(stats[1])
-                        result["rtt_max"] = float(stats[2])
-                    except (ValueError, IndexError):
-                        pass
-
-            return result
-
-        except (asyncio.TimeoutError, OSError) as e:
-            logger.warning("Ping failed for %s: %s", ip, e)
-            return {
-                "rtt_min": None, "rtt_avg": None, "rtt_max": None,
-                "packet_loss": 100.0, "is_reachable": False,
-            }
 
     async def poll_device(self, device: dict) -> None:
         """Full poll cycle for a single device."""
@@ -514,21 +502,11 @@ class SNMPPoller:
         logger.info("Polling device %s (%s)", hostname, ip)
         poll_start = time.monotonic()
 
+        if not device.get("snmp_enabled", True):
+            logger.info("SNMP disabled for device %s (%s), skipping.", hostname, ip)
+            return
+
         try:
-            # 1. Ping
-            if device.get("ping_enabled", True):
-                ping_result = await self.ping_device(device)
-                db.insert_ping_metrics([{
-                    "time": now,
-                    "device_id": device_id,
-                    **ping_result,
-                }])
-
-                if not ping_result["is_reachable"]:
-                    db.update_device_status(device_id, "down")
-                    logger.warning("Device %s (%s) is unreachable", hostname, ip)
-                    return
-
             # 2. System info
             sys_info = await self.poll_system_info(device)
             if sys_info:
@@ -542,19 +520,45 @@ class SNMPPoller:
             # 3. Interfaces
             interfaces = await self.poll_interfaces(device)
             if interfaces:
-                # Save interface info
+                # Fetch previous states to detect changes for alarms
+                prev_states = db.get_interface_states(device_id)
+                
+                # Save discovered interfaces
                 iface_db = []
                 for iface in interfaces:
+                    idx = iface["if_index"]
+                    curr_oper = iface.get("if_oper_status")
+                    prev_oper = prev_states.get(idx)
+                    
+                    # Generate alarms
+                    if prev_oper is not None and curr_oper is not None:
+                        if prev_oper == 1 and curr_oper != 1:
+                            # Interface went down
+                            if_name = iface.get("if_descr") or f"ifIndex {idx}"
+                            db.set_alarm(
+                                device_id=device_id,
+                                entity_type="interface",
+                                entity_id=str(idx),
+                                name=f"Interface {if_name} Down",
+                                severity="critical",
+                                message=f"Interface operational status changed to {curr_oper}"
+                            )
+                        elif prev_oper != 1 and curr_oper == 1:
+                            # Interface came back up
+                            db.resolve_alarm(device_id, "interface", str(idx))
+
                     iface_db.append({
-                        "if_index": iface["if_index"],
+                        "if_index": idx,
                         "if_descr": iface.get("if_descr"),
                         "if_alias": iface.get("if_alias"),
                         "if_type": iface.get("if_type"),
                         "if_speed": iface.get("if_speed"),
                         "if_hc_speed": iface.get("if_hc_speed"),
                         "if_admin_status": iface.get("if_admin_status"),
-                        "if_oper_status": iface.get("if_oper_status"),
+                        "if_oper_status": curr_oper,
                         "if_phys_address": iface.get("if_phys_address"),
+                        "vlan_type": iface.get("vlan_type"),
+                        "native_vlan": iface.get("native_vlan"),
                     })
                 db.upsert_interfaces(device_id, iface_db)
 
@@ -603,7 +607,7 @@ class SNMPPoller:
             # 4. Host resources (CPU/Memory)
             hr = await self.poll_host_resources(device)
             
-            if device.get("vendor") == "MikroTik":
+            if hr.get("pppoe_online") is None and device.get("_pppoe_count", 0) > 0:
                 hr["pppoe_online"] = device.get("_pppoe_count", 0)
 
             db.insert_system_metrics([{
@@ -650,13 +654,14 @@ class SNMPPoller:
                     idx = ".".join(parts[1:])
                     
                     if idx not in peers:
-                        peers[idx] = {"peer_addr": idx, "prefixes_received": None, "prefixes_advertised": None}
+                        peers[idx] = {"peer_addr": idx, "prefixes_received": None, "prefixes_advertised": None, "fsm_established_time": None}
                         
                     if col == "2": peers[idx]["state"] = safe_int(val)
                     elif col == "3": peers[idx]["admin_status"] = safe_int(val)
                     elif col == "9": peers[idx]["peer_as"] = safe_int(val)
                     elif col == "10": peers[idx]["in_updates"] = safe_int(val)
                     elif col == "11": peers[idx]["out_updates"] = safe_int(val)
+                    elif col == "16": peers[idx]["fsm_established_time"] = safe_int(val)
 
             # Huawei specific routes
             if vendor == "Huawei":
@@ -692,9 +697,25 @@ class SNMPPoller:
                             "out_updates": p.get("out_updates"),
                             "prefixes_received": p.get("prefixes_received"),
                             "prefixes_advertised": p.get("prefixes_advertised"),
+                            "fsm_established_time": p.get("fsm_established_time"),
                             "updated_at": now
                         })
                 db.upsert_bgp_peers(device_id, db_peers)
+                
+                # Insert history for graph
+                bgp_metrics = []
+                for p in db_peers:
+                    # state 6 is Established, others are not
+                    state_val = 1 if p.get("state") == 6 else 0
+                    bgp_metrics.append({
+                        "time": now,
+                        "device_id": device_id,
+                        "peer_addr": p["peer_addr"],
+                        "state": state_val,
+                        "uptime": p.get("fsm_established_time")
+                    })
+                db.insert_bgp_metrics(bgp_metrics)
+                
                 logger.info("Updated %d BGP peers for %s", len(db_peers), device.get("hostname"))
 
         except Exception as e:

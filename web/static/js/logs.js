@@ -1,5 +1,5 @@
 /**
- * snmpEndLog — Log Viewer JavaScript
+ * nms — Log Viewer JavaScript
  * Handles log searching, filtering, pagination, and severity stats.
  */
 

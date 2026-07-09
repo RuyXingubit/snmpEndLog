@@ -1,4 +1,4 @@
-module snmpendlog-web
+module nms-web
 
 go 1.22
 

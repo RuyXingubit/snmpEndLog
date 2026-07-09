@@ -1,4 +1,4 @@
-# snmpEndLog
+# nms
 
 # Dependencies
 __pycache__/
@@ -39,3 +39,4 @@ web/tmp/
 
 # Database
 data/
+mibs/

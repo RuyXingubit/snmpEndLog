@@ -1,0 +1,10 @@
+{
+  "name": "snmpendlog",
+  "version": "1.0.0",
+  "description": "NMS using SNMP",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xingubit/snmpendlog.git"
+  },
+  "private": true
+}

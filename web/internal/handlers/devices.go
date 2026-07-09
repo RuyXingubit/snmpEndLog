@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"snmpendlog-web/internal/db"
+	"nms-web/internal/db"
 )
 
 // Device represents a network device for templates.
@@ -31,6 +31,7 @@ type Device struct {
 	FirmwareVersion *string
 	PollInterval    int
 	PingEnabled     bool
+	SnmpEnabled     bool
 	LastPolledAt    *time.Time
 	LastSeenAt      *time.Time
 }
@@ -47,6 +48,8 @@ type InterfaceInfo struct {
 	OutBps       *float64
 	InErrors     *int64
 	OutErrors    *int64
+	VlanType     *string
+	NativeVlan   *int
 }
 
 // BgpPeer represents a BGP peer for templates.
@@ -59,6 +62,7 @@ type BgpPeer struct {
 	OutUpdates         *int64
 	PrefixesReceived   *int64
 	PrefixesAdvertised *int64
+	FsmEstablishedTime *int64
 }
 
 // HandleDevices renders the device list/management page.
@@ -67,13 +71,12 @@ func HandleDevices(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	rows, err := db.Pool.Query(ctx, `
-		SELECT id, hostname, host(ip_address), snmp_version, status,
+		SELECT id, hostname, host(ip_address), snmp_version, community, status,
 		       vendor, sys_name, sys_descr, sys_location, sys_uptime,
 		       board_name, serial_number, firmware_version, voltage,
-		       poll_interval, ping_enabled, last_polled_at, last_seen_at
+		       poll_interval, ping_enabled, snmp_enabled, last_polled_at, last_seen_at
 		FROM devices
-		WHERE enabled = TRUE
-		ORDER BY hostname
+		ORDER BY id DESC
 	`)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -85,10 +88,10 @@ func HandleDevices(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var d Device
 		err := rows.Scan(
-			&d.ID, &d.Hostname, &d.IPAddress, &d.SNMPVersion, &d.Status,
+			&d.ID, &d.Hostname, &d.IPAddress, &d.SNMPVersion, &d.Community, &d.Status,
 			&d.Vendor, &d.SysName, &d.SysDescr, &d.SysLocation, &d.SysUptime,
 			&d.BoardName, &d.SerialNumber, &d.FirmwareVersion, &d.Voltage,
-			&d.PollInterval, &d.PingEnabled, &d.LastPolledAt, &d.LastSeenAt,
+			&d.PollInterval, &d.PingEnabled, &d.SnmpEnabled, &d.LastPolledAt, &d.LastSeenAt,
 		)
 		if err != nil {
 			continue
@@ -132,13 +135,13 @@ func HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
 		SELECT id, hostname, host(ip_address), snmp_version, community, status,
 		       vendor, sys_name, sys_descr, sys_location, sys_uptime,
 		       board_name, serial_number, firmware_version, voltage,
-		       poll_interval, ping_enabled, last_polled_at, last_seen_at
+		       poll_interval, ping_enabled, snmp_enabled, last_polled_at, last_seen_at
 		FROM devices WHERE id = $1
 	`, deviceID).Scan(
 		&d.ID, &d.Hostname, &d.IPAddress, &d.SNMPVersion, &d.Community, &d.Status,
 		&d.Vendor, &d.SysName, &d.SysDescr, &d.SysLocation, &d.SysUptime,
 		&d.BoardName, &d.SerialNumber, &d.FirmwareVersion, &d.Voltage,
-		&d.PollInterval, &d.PingEnabled, &d.LastPolledAt, &d.LastSeenAt,
+		&d.PollInterval, &d.PingEnabled, &d.SnmpEnabled, &d.LastPolledAt, &d.LastSeenAt,
 	)
 	if err != nil {
 		http.Error(w, "Device not found", http.StatusNotFound)
@@ -149,7 +152,8 @@ func HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
 	irows, err := db.Pool.Query(ctx, `
 		SELECT i.if_index, i.if_descr, i.if_alias, i.if_speed,
 		       COALESCE(i.if_admin_status, 1), COALESCE(i.if_oper_status, 1),
-		       mt.in_bps, mt.out_bps, mt.in_errors, mt.out_errors
+		       mt.in_bps, mt.out_bps, mt.in_errors, mt.out_errors,
+               i.vlan_type, i.native_vlan
 		FROM interfaces i
 		LEFT JOIN LATERAL (
 			SELECT in_bps, out_bps, in_errors, out_errors
@@ -173,6 +177,7 @@ func HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
 			&iface.IfIndex, &iface.IfDescr, &iface.IfAlias, &iface.IfSpeed,
 			&iface.IfAdminStatus, &iface.IfOperStatus,
 			&iface.InBps, &iface.OutBps, &iface.InErrors, &iface.OutErrors,
+            &iface.VlanType, &iface.NativeVlan,
 		)
 		if err != nil {
 			continue
@@ -183,7 +188,7 @@ func HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// Fetch BGP Peers
 	brows, err := db.Pool.Query(ctx, `
 		SELECT peer_addr, peer_as, state, admin_status,
-		       in_updates, out_updates, prefixes_received, prefixes_advertised
+		       in_updates, out_updates, prefixes_received, prefixes_advertised, fsm_established_time
 		FROM bgp_peers
 		WHERE device_id = $1
 		ORDER BY peer_addr
@@ -199,7 +204,7 @@ func HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
 		var p BgpPeer
 		err := brows.Scan(
 			&p.PeerAddr, &p.PeerAs, &p.State, &p.AdminStatus,
-			&p.InUpdates, &p.OutUpdates, &p.PrefixesReceived, &p.PrefixesAdvertised,
+			&p.InUpdates, &p.OutUpdates, &p.PrefixesReceived, &p.PrefixesAdvertised, &p.FsmEstablishedTime,
 		)
 		if err == nil {
 			bgpPeers = append(bgpPeers, p)
@@ -238,6 +243,8 @@ func HandleDeviceAdd(w http.ResponseWriter, r *http.Request) {
 		ipAddress = ipAddress[:idx]
 	}
 
+	snmpEnabled := r.FormValue("snmp_enabled") == "on"
+
 	// Validate
 	if hostname == "" || ipAddress == "" {
 		http.Error(w, "Hostname e IP são obrigatórios", http.StatusBadRequest)
@@ -251,9 +258,9 @@ func HandleDeviceAdd(w http.ResponseWriter, r *http.Request) {
 
 	if snmpVersion == "v2c" {
 		_, err := db.Pool.Exec(ctx, `
-			INSERT INTO devices (hostname, ip_address, snmp_version, community, poll_interval)
-			VALUES ($1, $2::inet, $3, $4, $5)
-		`, hostname, ipAddress, snmpVersion, community, pollInterval)
+			INSERT INTO devices (hostname, ip_address, snmp_version, community, poll_interval, snmp_enabled)
+			VALUES ($1, $2::inet, $3, $4, $5, $6)
+		`, hostname, ipAddress, snmpVersion, community, pollInterval, snmpEnabled)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Erro ao adicionar: %v", err), http.StatusBadRequest)
 			return
@@ -272,11 +279,11 @@ func HandleDeviceAdd(w http.ResponseWriter, r *http.Request) {
 				(hostname, ip_address, snmp_version, snmpv3_user,
 				 snmpv3_auth_proto, snmpv3_auth_pass,
 				 snmpv3_priv_proto, snmpv3_priv_pass, snmpv3_sec_level,
-				 poll_interval)
-			VALUES ($1, $2::inet, $3, $4, $5, $6, $7, $8, $9, $10)
+				 poll_interval, snmp_enabled)
+			VALUES ($1, $2::inet, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		`, hostname, ipAddress, snmpVersion, v3User,
 			v3AuthProto, v3AuthPass, v3PrivProto, v3PrivPass, v3SecLevel,
-			pollInterval)
+			pollInterval, snmpEnabled)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Erro ao adicionar: %v", err), http.StatusBadRequest)
 			return
@@ -334,6 +341,7 @@ func HandleDeviceEdit(w http.ResponseWriter, r *http.Request) {
 		pollInterval = 300
 	}
 	pingEnabled := r.FormValue("ping_enabled") == "on"
+	snmpEnabled := r.FormValue("snmp_enabled") == "on"
 
 	if hostname == "" {
 		http.Error(w, "Hostname é obrigatório", http.StatusBadRequest)
@@ -346,9 +354,10 @@ func HandleDeviceEdit(w http.ResponseWriter, r *http.Request) {
 			community = $2,
 			poll_interval = $3,
 			ping_enabled = $4,
+			snmp_enabled = $5,
 			updated_at = NOW()
-		WHERE id = $5
-	`, hostname, community, pollInterval, pingEnabled, deviceID)
+		WHERE id = $6
+	`, hostname, community, pollInterval, pingEnabled, snmpEnabled, deviceID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Erro ao atualizar: %v", err), http.StatusInternalServerError)
 		return
@@ -379,13 +388,13 @@ func HandleDeviceEditPage(w http.ResponseWriter, r *http.Request) {
 		SELECT id, hostname, host(ip_address), snmp_version, community, status,
 		       vendor, sys_name, sys_descr, sys_location, sys_uptime,
 		       board_name, serial_number, firmware_version, voltage,
-		       poll_interval, ping_enabled, last_polled_at, last_seen_at
+		       poll_interval, ping_enabled, snmp_enabled, last_polled_at, last_seen_at
 		FROM devices WHERE id = $1
 	`, deviceID).Scan(
 		&d.ID, &d.Hostname, &d.IPAddress, &d.SNMPVersion, &d.Community, &d.Status,
 		&d.Vendor, &d.SysName, &d.SysDescr, &d.SysLocation, &d.SysUptime,
 		&d.BoardName, &d.SerialNumber, &d.FirmwareVersion, &d.Voltage,
-		&d.PollInterval, &d.PingEnabled, &d.LastPolledAt, &d.LastSeenAt,
+		&d.PollInterval, &d.PingEnabled, &d.SnmpEnabled, &d.LastPolledAt, &d.LastSeenAt,
 	)
 	if err != nil {
 		http.Error(w, "Device not found", http.StatusNotFound)

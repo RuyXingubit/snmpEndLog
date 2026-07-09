@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"snmpendlog-web/internal/db"
+	"nms-web/internal/db"
 )
 
 // DashboardData holds all data for the dashboard overview.
@@ -69,13 +69,19 @@ func HandleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	// Top traffic interfaces (latest reading)
 	trows, err := db.Pool.Query(ctx, `
-		SELECT d.hostname, i.if_descr, mt.in_bps, mt.out_bps
-		FROM metric_traffic mt
-		JOIN devices d ON d.id = mt.device_id
-		JOIN interfaces i ON i.device_id = mt.device_id AND i.if_index = mt.if_index
-		WHERE mt.time > NOW() - INTERVAL '10 minutes'
-		  AND mt.in_bps IS NOT NULL
-		ORDER BY (mt.in_bps + mt.out_bps) DESC
+		WITH latest_traffic AS (
+			SELECT DISTINCT ON (device_id, if_index) 
+				   device_id, if_index, in_bps, out_bps, time
+			FROM metric_traffic
+			WHERE time > NOW() - INTERVAL '10 minutes'
+			  AND in_bps IS NOT NULL
+			ORDER BY device_id, if_index, time DESC
+		)
+		SELECT d.hostname, i.if_descr, lt.in_bps, lt.out_bps
+		FROM latest_traffic lt
+		JOIN devices d ON d.id = lt.device_id
+		JOIN interfaces i ON i.device_id = lt.device_id AND i.if_index = lt.if_index
+		ORDER BY (lt.in_bps + lt.out_bps) DESC
 		LIMIT 10
 	`)
 	if err == nil {

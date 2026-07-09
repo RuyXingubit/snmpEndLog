@@ -1,4 +1,4 @@
-"""snmpEndLog Collector — SNMP Poller + Syslog Receiver.
+"""nms Collector — SNMP Poller + Syslog Receiver.
 
 Entry point that starts both services concurrently using asyncio.
 """
@@ -14,6 +14,7 @@ from config import Config
 from db_migrate import run_migrations
 from logs.receiver import SyslogReceiver
 from snmp.poller import SNMPPoller
+from snmp.ping_poller import PingPoller
 
 # Configure logging
 logging.basicConfig(
@@ -22,13 +23,13 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
     stream=sys.stdout,
 )
-logger = logging.getLogger("snmpendlog")
+logger = logging.getLogger("nms")
 
 
 async def main() -> None:
     """Start the collector services."""
     logger.info("=" * 60)
-    logger.info("snmpEndLog Collector starting...")
+    logger.info("nms Collector starting...")
     logger.info("=" * 60)
     logger.info("DB: %s@%s:%d/%s", Config.DB_USER, Config.DB_HOST, Config.DB_PORT, Config.DB_NAME)
     logger.info("SNMP default interval: %ds", Config.SNMP_DEFAULT_INTERVAL)
@@ -44,6 +45,7 @@ async def main() -> None:
 
     # Create services
     poller = SNMPPoller()
+    ping_poller = PingPoller()
     syslog = SyslogReceiver(
         udp_port=Config.LOG_UDP_PORT,
         tcp_port=Config.LOG_TCP_PORT,
@@ -56,6 +58,7 @@ async def main() -> None:
     def _shutdown(sig: signal.Signals) -> None:
         logger.info("Received signal %s, shutting down...", sig.name)
         poller.stop()
+        ping_poller.stop()
         syslog.stop()
         shutdown_event.set()
 
@@ -66,6 +69,7 @@ async def main() -> None:
     try:
         await asyncio.gather(
             poller.run(),
+            ping_poller.run(),
             syslog.run(),
         )
     except asyncio.CancelledError:

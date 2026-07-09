@@ -9,8 +9,8 @@ class Config:
     # Database
     DB_HOST: str = os.getenv("DB_HOST", "localhost")
     DB_PORT: int = int(os.getenv("DB_PORT", "5432"))
-    DB_NAME: str = os.getenv("DB_NAME", "snmpendlog")
-    DB_USER: str = os.getenv("DB_USER", "snmpendlog")
+    DB_NAME: str = os.getenv("DB_NAME", "nms")
+    DB_USER: str = os.getenv("DB_USER", "nms")
     DB_PASSWORD: str = os.getenv("DB_PASSWORD", "")
 
     # SNMP

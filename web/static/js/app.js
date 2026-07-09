@@ -1,5 +1,5 @@
 /**
- * snmpEndLog — Main Application JavaScript
+ * nms — Main Application JavaScript
  * Utilities and shared functionality
  */
 
@@ -82,4 +82,70 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+
+    // Start polling alarms
+    fetchAlarms();
+    setInterval(fetchAlarms, 30000); // 30s
 });
+
+// ============================================
+// Alarms
+// ============================================
+async function fetchAlarms() {
+    const alarms = await api('/api/alarms');
+    if (!alarms) return;
+
+    const navItem = document.getElementById('nav-alarms');
+    const badge = document.getElementById('alarm-count');
+    
+    if (alarms.length > 0) {
+        navItem.style.display = 'flex';
+        badge.textContent = alarms.length;
+    } else {
+        navItem.style.display = 'none';
+        badge.textContent = '0';
+    }
+
+    // Se o modal estiver aberto, atualizar a tabela
+    const modal = document.getElementById('alarms-modal');
+    if (modal && modal.classList.contains('active')) {
+        renderAlarmsTable(alarms);
+    }
+}
+
+async function showAlarmsModal() {
+    const modal = document.getElementById('alarms-modal');
+    if (modal) modal.classList.add('active');
+    
+    const alarms = await api('/api/alarms');
+    if (alarms) renderAlarmsTable(alarms);
+}
+
+function renderAlarmsTable(alarms) {
+    const tbody = document.getElementById('alarms-table-body');
+    if (!tbody) return;
+
+    if (alarms.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Nenhum alarme ativo.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = alarms.map(a => `
+        <tr>
+            <td>${formatTimeShort(a.created_at)}</td>
+            <td>Dev ${a.device_id}</td>
+            <td><span class="badge badge-down">${a.severity.toUpperCase()}</span></td>
+            <td>${a.message}</td>
+            <td>
+                <button class="btn btn-sm" onclick="resolveAlarm(${a.id})">✅ Resolver</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function resolveAlarm(id) {
+    const res = await api(`/api/alarms/${id}/resolve`, { method: 'POST' });
+    if (res && res.status === 'ok') {
+        fetchAlarms();
+    }
+}

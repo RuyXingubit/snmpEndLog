@@ -23,6 +23,7 @@ class Bgp4OIDs:
     PEER_REMOTE_AS       = "1.3.6.1.2.1.15.3.1.9"
     PEER_IN_UPDATES      = "1.3.6.1.2.1.15.3.1.10"
     PEER_OUT_UPDATES     = "1.3.6.1.2.1.15.3.1.11"
+    PEER_FSM_ESTABLISHED_TIME = "1.3.6.1.2.1.15.3.1.16"
 
 
 
@@ -137,6 +138,10 @@ class HuaweiOIDs:
     # HUAWEI-BGP-VPN-MIB
     HW_BGP_PEER_TABLE   = "1.3.6.1.4.1.2011.5.25.177.1.1.2.1"
     HW_BGP_PEER_ROUTES  = "1.3.6.1.4.1.2011.5.25.177.1.1.3.1"
+
+    # HUAWEI-L2IF-MIB (VLANs / Port types)
+    HW_L2_PORT_TYPE     = "1.3.6.1.4.1.2011.5.25.42.1.1.1.3.1.3"
+    HW_L2_PVID          = "1.3.6.1.4.1.2011.5.25.42.1.1.1.3.1.4"
 
     # Board name
     HW_BOARD_NAME           = "1.3.6.1.4.1.2011.6.157.2.1.1.3"

@@ -1,4 +1,4 @@
-# snmpEndLog
+# NMS
 
 **Monitor SNMP + Coletor de Logs Leve** — Alternativa leve ao Zabbix/LibreNMS.
 
@@ -34,8 +34,8 @@ Arquitetura híbrida: **Python** para coleta SNMP e recepção de logs, **Go** p
 
 ```bash
 # 1. Clone o repositório
-git clone <repo-url> snmpEndLog
-cd snmpEndLog
+git clone <repo-url> NMS
+cd NMS
 
 # 2. Configure o ambiente
 cp .env.example .env
@@ -51,6 +51,32 @@ docker compose up -d
 # http://localhost:8080
 # Login: admin / (senha definida em ADMIN_PASSWORD)
 ```
+
+## Deploy em Produção (SSL via Let's Encrypt + Caddy)
+
+O repositório possui imagens pré-compiladas no Docker Hub (`xingubit`). O sistema pode ser colocado em produção facilmente:
+
+1. Baixe o `docker-compose.prod.yml`:
+   ```bash
+   wget https://raw.githubusercontent.com/xingubit/snmpendlog/main/docker-compose.prod.yml -O docker-compose.yml
+   ```
+
+2. Crie e edite o arquivo `.env`:
+   ```bash
+   touch .env
+   # Adicione e edite as seguintes variáveis:
+   # DOMAIN=seu-dominio.com
+   # ACME_EMAIL=seu-email@dominio.com (usado para gerar o certificado SSL)
+   # POSTGRES_PASSWORD=senha-super-segura
+   # JWT_SECRET=chave-secreta-longa
+   # ADMIN_PASSWORD=senha-do-admin
+   ```
+
+3. Suba o sistema:
+   ```bash
+   docker-compose up -d
+   ```
+O Caddy cuidará automaticamente da criação do certificado SSL. Basta acessar `https://seu-dominio.com`.
 
 ## Arquitetura
 

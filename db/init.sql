@@ -1,5 +1,5 @@
 -- ============================================
--- snmpEndLog — PostgreSQL Entrypoint
+-- nms — PostgreSQL Entrypoint
 -- Only enables required extensions.
 -- Schema is managed by migrations (db/migrations/).
 -- ============================================

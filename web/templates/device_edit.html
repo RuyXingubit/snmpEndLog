@@ -35,10 +35,15 @@
 
     <!-- SNMP -->
     <div class="card mb-md">
-        <div class="card-header">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
             <span class="card-title">SNMP</span>
+            <label style="display:flex; align-items:center; gap: 8px; cursor: pointer; font-size: 0.9rem; font-weight: normal;">
+                <input type="checkbox" id="snmp_enabled" name="snmp_enabled" {{if .Device.SnmpEnabled}}checked{{end}}
+                       style="width: 16px; height: 16px;" onchange="toggleSNMPFields()">
+                Ativar SNMP
+            </label>
         </div>
-        <div style="padding: 1.25rem;">
+        <div style="padding: 1.25rem;" id="snmp-fields-container">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
                 <div>
                     <label class="form-label">Versão SNMP</label>
@@ -113,4 +118,19 @@
         margin-bottom: 6px;
     }
 </style>
+<script>
+    function toggleSNMPFields() {
+        const isSnmpEnabled = document.getElementById('snmp_enabled').checked;
+        const snmpContainer = document.getElementById('snmp-fields-container');
+        
+        if (!isSnmpEnabled) {
+            snmpContainer.style.display = 'none';
+        } else {
+            snmpContainer.style.display = 'block';
+        }
+    }
+
+    // Call on load to set initial state
+    document.addEventListener('DOMContentLoaded', toggleSNMPFields);
+</script>
 {{end}}

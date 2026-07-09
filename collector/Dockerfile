@@ -8,9 +8,10 @@ RUN apt-get update && \
         iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY collector/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY collector/ .
+COPY db/ /app/db/
 
 CMD ["python", "-u", "main.py"]

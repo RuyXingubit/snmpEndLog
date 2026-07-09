@@ -1,4 +1,4 @@
-// snmpEndLog Web Server — Dashboard and API
+// nms Web Server — Dashboard and API
 package main
 
 import (
@@ -11,17 +11,17 @@ import (
 	"syscall"
 	"time"
 
-	"snmpendlog-web/internal/auth"
-	"snmpendlog-web/internal/db"
-	"snmpendlog-web/internal/handlers"
-	"snmpendlog-web/internal/middleware"
+	"nms-web/internal/auth"
+	"nms-web/internal/db"
+	"nms-web/internal/handlers"
+	"nms-web/internal/middleware"
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	log.Println("============================================================")
-	log.Println("snmpEndLog Web Server starting...")
+	log.Println("nms Web Server starting...")
 	log.Println("============================================================")
 
 	// Initialize database
@@ -74,9 +74,12 @@ func main() {
 	apiMux.HandleFunc("/api/metrics/traffic", handlers.HandleAPITraffic)
 	apiMux.HandleFunc("/api/metrics/system", handlers.HandleAPISystem)
 	apiMux.HandleFunc("/api/metrics/ping", handlers.HandleAPIPing)
+	apiMux.HandleFunc("/api/metrics/bgp", handlers.HandleAPIBGP)
 	apiMux.HandleFunc("/api/logs", handlers.HandleAPILogs)
 	apiMux.HandleFunc("/api/logs/stats", handlers.HandleAPILogStats)
 	apiMux.HandleFunc("/api/logs/hosts", handlers.HandleAPILogHosts)
+	apiMux.HandleFunc("/api/alarms", handlers.HandleAPIAlarms)
+	apiMux.HandleFunc("/api/alarms/", handlers.HandleAPIAlarmResolve)
 
 	mux.Handle("/api/", middleware.RequireAPI(apiMux))
 

@@ -1,8 +1,22 @@
 services:
+  caddy:
+    image: lucaslorentz/caddy-docker-proxy:ci-alpine
+    container_name: nms-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CADDY_INGRESS_NETWORKS=nms_network
+      - CADDY_DOCKER_CADDYFILE_PATH=/etc/caddy/Caddyfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - caddy_data:/data
+    restart: unless-stopped
+    networks:
+      - nms_network
+
   db:
-    build:
-      context: ./db
-      dockerfile: Dockerfile
+    image: xingubit/nms-db:latest
     container_name: nms-db
     restart: unless-stopped
     environment:
@@ -19,18 +33,20 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    networks:
+      - nms_network
 
   collector:
-    build:
-      context: .
-      dockerfile: collector/Dockerfile
+    image: xingubit/nms-collector:latest
     container_name: nms-collector
     restart: unless-stopped
+    # Use host network for SNMP UDP polling and Syslog UDP receiver
     network_mode: host
     depends_on:
       db:
         condition: service_healthy
     environment:
+      # Access db through localhost because network_mode is host
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-nms}
@@ -39,12 +55,11 @@ services:
       SNMP_DEFAULT_INTERVAL: ${SNMP_DEFAULT_INTERVAL:-300}
       LOG_UDP_PORT: ${LOG_UDP_PORT:-5514}
       LOG_TCP_PORT: ${LOG_TCP_PORT:-5514}
+      # MIGRATIONS_DIR is now built into the image at /app/db/migrations
       MIGRATIONS_DIR: /app/db/migrations
 
   web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
+    image: xingubit/nms-web:latest
     container_name: nms-web
     restart: unless-stopped
     depends_on:
@@ -59,10 +74,19 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       ADMIN_USER: ${ADMIN_USER:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
-      WEB_PORT: ${WEB_PORT:-8080}
-    ports:
-      - "${WEB_PORT:-8080}:${WEB_PORT:-8080}"
+      WEB_PORT: 8080
+    networks:
+      - nms_network
+    labels:
+      caddy: ${DOMAIN:?DOMAIN is required}
+      caddy.reverse_proxy: "{{upstreams 8080}}"
+      # To enable Let's Encrypt, we define tls email
+      caddy.tls: ${ACME_EMAIL:-internal}
+
+networks:
+  nms_network:
+    driver: bridge
 
 volumes:
   db_data:
-    driver: local
+  caddy_data:

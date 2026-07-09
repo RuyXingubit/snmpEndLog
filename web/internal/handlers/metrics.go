@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"snmpendlog-web/internal/db"
+	"nms-web/internal/db"
 )
 
 // MetricPoint represents a single data point for charts.
@@ -23,9 +23,10 @@ type TrafficData struct {
 
 // SystemData represents system metrics for a chart.
 type SystemData struct {
-	CPU    []MetricPoint `json:"cpu"`
-	Memory []MetricPoint `json:"memory"`
-	PPPoE  []MetricPoint `json:"pppoe,omitempty"`
+	CPU         []MetricPoint `json:"cpu"`
+	Memory      []MetricPoint `json:"memory"`
+	Temperature []MetricPoint `json:"temperature,omitempty"`
+	PPPoE       []MetricPoint `json:"pppoe,omitempty"`
 }
 
 // PingData represents ping metrics for a chart.
@@ -80,7 +81,7 @@ func HandleAPISystem(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	rows, err := db.Pool.Query(ctx, `
-		SELECT time, COALESCE(cpu_percent, 0), COALESCE(memory_percent, 0), pppoe_online
+		SELECT time, COALESCE(cpu_percent, 0), COALESCE(memory_percent, 0), pppoe_online, temperature
 		FROM metric_system
 		WHERE device_id = $1 AND time > NOW() - $2::interval
 		ORDER BY time ASC
@@ -96,13 +97,17 @@ func HandleAPISystem(w http.ResponseWriter, r *http.Request) {
 		var t time.Time
 		var cpu, mem float64
 		var pppoe *int
-		if err := rows.Scan(&t, &cpu, &mem, &pppoe); err != nil {
+		var temp *float64
+		if err := rows.Scan(&t, &cpu, &mem, &pppoe, &temp); err != nil {
 			continue
 		}
 		data.CPU = append(data.CPU, MetricPoint{Time: t, Value: cpu})
 		data.Memory = append(data.Memory, MetricPoint{Time: t, Value: mem})
 		if pppoe != nil {
 			data.PPPoE = append(data.PPPoE, MetricPoint{Time: t, Value: float64(*pppoe)})
+		}
+		if temp != nil {
+			data.Temperature = append(data.Temperature, MetricPoint{Time: t, Value: *temp})
 		}
 	}
 
@@ -139,6 +144,48 @@ func HandleAPIPing(w http.ResponseWriter, r *http.Request) {
 		}
 		data.RTT = append(data.RTT, MetricPoint{Time: t, Value: rtt})
 		data.PacketLoss = append(data.PacketLoss, MetricPoint{Time: t, Value: loss})
+	}
+
+	jsonResponse(w, http.StatusOK, data)
+}
+
+// BGPData represents BGP metrics for a chart.
+type BGPData struct {
+	State  []MetricPoint `json:"state"`
+	Uptime []MetricPoint `json:"uptime"`
+}
+
+// HandleAPIBGP returns BGP metrics as JSON.
+// GET /api/metrics/bgp?device_id=1&peer_addr=1.1.1.1&period=1h
+func HandleAPIBGP(w http.ResponseWriter, r *http.Request) {
+	deviceID, _ := strconv.Atoi(r.URL.Query().Get("device_id"))
+	peerAddr := r.URL.Query().Get("peer_addr")
+	period := parsePeriod(r.URL.Query().Get("period"))
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	rows, err := db.Pool.Query(ctx, `
+		SELECT time, COALESCE(state, 0), COALESCE(uptime, 0)
+		FROM metric_bgp
+		WHERE device_id = $1 AND peer_addr = $2 AND time > NOW() - $3::interval
+		ORDER BY time ASC
+	`, deviceID, peerAddr, period)
+	if err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	data := BGPData{}
+	for rows.Next() {
+		var t time.Time
+		var state, uptime float64
+		if err := rows.Scan(&t, &state, &uptime); err != nil {
+			continue
+		}
+		data.State = append(data.State, MetricPoint{Time: t, Value: state})
+		data.Uptime = append(data.Uptime, MetricPoint{Time: t, Value: uptime})
 	}
 
 	jsonResponse(w, http.StatusOK, data)

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"snmpendlog-web/internal/db"
+	"nms-web/internal/db"
 )
 
 // LogEntry represents a syslog entry for templates and API.

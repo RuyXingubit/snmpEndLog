@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="snmpEndLog — Monitor SNMP e Coletor de Logs Leve">
-    <title>{{.Title}} — snmpEndLog</title>
+    <meta name="description" content="NMS — Monitor SNMP e Coletor de Logs Leve">
+    <title>{{.Title}} — NMS</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="/static/js/app.js"></script>
 </head>
@@ -14,13 +14,17 @@
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
             <div class="brand-icon">📡</div>
-            <h1>snmpEndLog</h1>
+            <h1>NMS</h1>
         </div>
         <nav class="sidebar-nav">
             <div class="nav-section">Monitoramento</div>
             <a href="/" class="nav-item{{if eq .Title "Dashboard"}} active{{end}}">
                 <span class="nav-icon">📊</span>
                 Dashboard
+            </a>
+            <a href="#" class="nav-item" id="nav-alarms" style="display: none;" onclick="showAlarmsModal()">
+                <span class="nav-icon">🚨</span>
+                <span style="color: var(--status-down);">Alarmes (<span id="alarm-count">0</span>)</span>
             </a>
             <a href="/devices" class="nav-item{{if eq .Title "Equipamentos"}} active{{end}}">
                 <span class="nav-icon">🖥️</span>
@@ -46,6 +50,33 @@
         {{template "content" .}}
     </main>
 </div>
+
+<!-- Modal Alarmes -->
+<div class="modal-overlay" id="alarms-modal">
+    <div class="modal" style="max-width: 800px; width: 90%;">
+        <div class="modal-header">
+            <h2 id="alarms-modal-title" style="color: var(--status-down);">🚨 Alarmes Ativos</h2>
+            <button class="btn btn-sm" onclick="document.getElementById('alarms-modal').classList.remove('active')">X</button>
+        </div>
+        <div class="modal-body">
+            <table class="table" style="font-size: 0.8rem;">
+                <thead>
+                    <tr>
+                        <th>Hora</th>
+                        <th>Device</th>
+                        <th>Severidade</th>
+                        <th>Mensagem</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="alarms-table-body">
+                    <!-- Preenchido via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
 {{end}}

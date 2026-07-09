@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 
-	"snmpendlog-web/internal/db"
+	"nms-web/internal/db"
 )
 
 // BcryptCost is the bcrypt hashing cost (≥12 for security).

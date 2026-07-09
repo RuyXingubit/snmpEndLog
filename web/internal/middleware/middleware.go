@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"snmpendlog-web/internal/auth"
+	"nms-web/internal/auth"
 )
 
 // contextKey is a custom type for context keys to avoid collisions.

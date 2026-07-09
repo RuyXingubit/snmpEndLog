@@ -1,6 +1,6 @@
 -- ============================================
 -- Migration 001: Initial Schema
--- snmpEndLog — PostgreSQL + TimescaleDB
+-- nms — PostgreSQL + TimescaleDB
 -- ============================================
 
 -- Enable TimescaleDB extension

@@ -82,10 +82,17 @@
                 <input type="text" class="form-input" id="ip_address" name="ip_address" required
                        placeholder="Ex: 192.168.1.1" pattern="[0-9.]+">
             </div>
-            <div class="form-group">
-                <label class="form-label" for="snmp_version">Versão SNMP</label>
-                <select class="form-input form-select" id="snmp_version" name="snmp_version"
-                        onchange="toggleSNMPFields(this.value)">
+            <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem;">
+                <input type="checkbox" id="snmp_enabled" name="snmp_enabled" checked
+                       onchange="toggleSNMPFields(document.getElementById('snmp_version').value)">
+                <label class="form-label" for="snmp_enabled" style="margin-bottom: 0;">Ativar SNMP (Desmarque para Ping Only)</label>
+            </div>
+
+            <div id="snmp-fields-container">
+                <div class="form-group">
+                    <label class="form-label" for="snmp_version">Versão SNMP</label>
+                    <select class="form-input form-select" id="snmp_version" name="snmp_version"
+                            onchange="toggleSNMPFields(this.value)">
                     <option value="v2c">SNMPv2c</option>
                     <option value="v3">SNMPv3</option>
                 </select>
@@ -144,12 +151,13 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="poll_interval">Intervalo de Polling (segundos)</label>
+                <label class="form-label" for="poll_interval">Intervalo SNMP (segundos)</label>
                 <input type="number" class="form-input" id="poll_interval" name="poll_interval"
                        value="300" min="30" max="3600">
             </div>
+            </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
                 Adicionar Equipamento
             </button>
         </form>
@@ -176,20 +184,27 @@
 </div>
 
 <script>
-function toggleSNMPFields(version) {
-    const v2cFields = document.getElementById('v2c-fields');
-    const v3Fields = document.getElementById('v3-fields');
-    
-    if (version === 'v2c') {
-        v2cFields.style.display = 'block';
-        v3Fields.style.display = 'none';
-        document.getElementById('community').required = true;
-    } else {
-        v2cFields.style.display = 'none';
-        v3Fields.style.display = 'block';
-        document.getElementById('community').required = false;
+    function toggleSNMPFields(version) {
+        const isSnmpEnabled = document.getElementById('snmp_enabled').checked;
+        const snmpContainer = document.getElementById('snmp-fields-container');
+        
+        if (!isSnmpEnabled) {
+            snmpContainer.style.display = 'none';
+            return;
+        }
+        
+        snmpContainer.style.display = 'block';
+
+        if (version === 'v2c') {
+            document.getElementById('v2c-fields').style.display = 'block';
+            document.getElementById('v3-fields').style.display = 'none';
+            document.getElementById('community').required = true;
+        } else {
+            document.getElementById('v2c-fields').style.display = 'none';
+            document.getElementById('v3-fields').style.display = 'block';
+            document.getElementById('community').required = false;
+        }
     }
-}
 
 function openDeleteModal(id, hostname) {
     document.getElementById('delete-hostname').textContent = hostname;

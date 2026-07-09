@@ -21,7 +21,7 @@ display current-configuration | include snmp
 
 ## 2. Criar uma nova Community SNMPv2c
 
-Para o nosso sistema `snmpEndLog` conseguir ler os dados (como tráfego, PPPoE online, CPU, Memória, Voltagem), precisamos de uma community com permissão de leitura (`read-only`). Siga os passos abaixo:
+Para o nosso sistema `nms` conseguir ler os dados (como tráfego, PPPoE online, CPU, Memória, Voltagem), precisamos de uma community com permissão de leitura (`read-only`). Siga os passos abaixo:
 
 ```bash
 # 1. Entre no modo de configuração do sistema
@@ -35,7 +35,7 @@ snmp-agent sys-info version v2c
 snmp-agent community read cipher SUA_COMMUNITY_AQUI
 
 # 4. (Opcional, mas Altamente Recomendado) Restringir o acesso via ACL
-# Isso garante que apenas o IP do seu servidor snmpEndLog possa fazer as consultas
+# Isso garante que apenas o IP do seu servidor nms possa fazer as consultas
 acl number 2000
  rule 5 permit source IP_DO_SEU_SERVIDOR 0
  quit
@@ -46,8 +46,8 @@ return
 save
 ```
 
-## 3. Configurar no snmpEndLog
-Após criar a community no roteador, basta ir na interface Web do **snmpEndLog**, clicar em **Equipamentos > Cadastrar (ou Configurações do Huawei)** e inserir:
+## 3. Configurar no nms
+Após criar a community no roteador, basta ir na interface Web do **nms**, clicar em **Equipamentos > Cadastrar (ou Configurações do Huawei)** e inserir:
 
 - **Versão SNMP:** `v2c`
 - **Community:** O nome que você definiu no passo 3.

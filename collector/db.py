@@ -61,7 +61,7 @@ def get_enabled_devices() -> list[dict[str, Any]]:
                        snmp_version, community,
                        snmpv3_user, snmpv3_auth_proto, snmpv3_auth_pass,
                        snmpv3_priv_proto, snmpv3_priv_pass, snmpv3_sec_level,
-                       poll_interval, ping_enabled, sys_name
+                       poll_interval, ping_enabled, snmp_enabled, sys_name
                 FROM devices
                 WHERE enabled = TRUE
             """)
@@ -147,12 +147,12 @@ def upsert_interfaces(device_id: int, interfaces: list[dict[str, Any]]) -> None:
                     INSERT INTO interfaces
                         (device_id, if_index, if_descr, if_alias, if_type,
                          if_speed, if_hc_speed, if_admin_status, if_oper_status,
-                         if_phys_address, updated_at)
+                         if_phys_address, vlan_type, native_vlan, updated_at)
                     VALUES
                         (%(device_id)s, %(if_index)s, %(if_descr)s, %(if_alias)s,
                          %(if_type)s, %(if_speed)s, %(if_hc_speed)s,
                          %(if_admin_status)s, %(if_oper_status)s,
-                         %(if_phys_address)s, NOW())
+                         %(if_phys_address)s, %(vlan_type)s, %(native_vlan)s, NOW())
                     ON CONFLICT (device_id, if_index) DO UPDATE SET
                         if_descr = EXCLUDED.if_descr,
                         if_alias = EXCLUDED.if_alias,
@@ -162,6 +162,8 @@ def upsert_interfaces(device_id: int, interfaces: list[dict[str, Any]]) -> None:
                         if_admin_status = EXCLUDED.if_admin_status,
                         if_oper_status = EXCLUDED.if_oper_status,
                         if_phys_address = EXCLUDED.if_phys_address,
+                        vlan_type = EXCLUDED.vlan_type,
+                        native_vlan = EXCLUDED.native_vlan,
                         updated_at = NOW()
                 """, {**iface, "device_id": device_id})
 
@@ -181,7 +183,7 @@ def upsert_bgp_peers(device_id: int, peers: list[dict[str, Any]]) -> None:
                 """
                 INSERT INTO bgp_peers 
                     (device_id, peer_addr, peer_as, state, admin_status, 
-                     in_updates, out_updates, prefixes_received, prefixes_advertised, updated_at)
+                     in_updates, out_updates, prefixes_received, prefixes_advertised, fsm_established_time, updated_at)
                 VALUES %s
                 ON CONFLICT (device_id, peer_addr) DO UPDATE SET
                     peer_as = EXCLUDED.peer_as,
@@ -191,6 +193,7 @@ def upsert_bgp_peers(device_id: int, peers: list[dict[str, Any]]) -> None:
                     out_updates = EXCLUDED.out_updates,
                     prefixes_received = EXCLUDED.prefixes_received,
                     prefixes_advertised = EXCLUDED.prefixes_advertised,
+                    fsm_established_time = EXCLUDED.fsm_established_time,
                     updated_at = EXCLUDED.updated_at
                 """,
                 [
@@ -199,7 +202,7 @@ def upsert_bgp_peers(device_id: int, peers: list[dict[str, Any]]) -> None:
                         r.get("state"), r.get("admin_status"),
                         r.get("in_updates"), r.get("out_updates"),
                         r.get("prefixes_received"), r.get("prefixes_advertised"),
-                        r["updated_at"]
+                        r.get("fsm_established_time"), r["updated_at"]
                     )
                     for r in peers
                 ]
@@ -241,7 +244,7 @@ def insert_system_metrics(rows: list[dict[str, Any]]) -> None:
                 cur,
                 """INSERT INTO metric_system
                    (time, device_id, cpu_percent, memory_percent,
-                    memory_used, memory_total, uptime, pppoe_online)
+                    memory_used, memory_total, uptime, pppoe_online, temperature)
                    VALUES %s""",
                 [
                     (
@@ -249,6 +252,7 @@ def insert_system_metrics(rows: list[dict[str, Any]]) -> None:
                         r.get("cpu_percent"), r.get("memory_percent"),
                         r.get("memory_used"), r.get("memory_total"),
                         r.get("uptime"), r.get("pppoe_online"),
+                        r.get("temperature"),
                     )
                     for r in rows
                 ],
@@ -314,3 +318,73 @@ def resolve_device_id_by_ip(ip: str) -> int | None:
             )
             row = cur.fetchone()
             return row[0] if row else None
+
+
+# ---- BGP Metrics (batch) ----
+
+def insert_bgp_metrics(rows: list[dict[str, Any]]) -> None:
+    """Batch insert BGP metrics."""
+    if not rows:
+        return
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            psycopg2.extras.execute_values(
+                cur,
+                """INSERT INTO metric_bgp
+                   (time, device_id, peer_addr, state, uptime)
+                   VALUES %s""",
+                [
+                    (
+                        r["time"], r["device_id"], r["peer_addr"],
+                        r.get("state"), r.get("uptime")
+                    )
+                    for r in rows
+                ],
+            )
+
+# ---- Alarms ----
+
+def set_alarm(device_id: int, entity_type: str, entity_id: str, name: str, severity: str, message: str) -> None:
+    """Create or update an active alarm."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO alarms (device_id, entity_type, entity_id, name, severity, message, status, created_at)
+                VALUES (%(device_id)s, %(entity_type)s, %(entity_id)s, %(name)s, %(severity)s, %(message)s, 'active', NOW())
+                ON CONFLICT (device_id, entity_type, entity_id) WHERE status = 'active'
+                DO UPDATE SET
+                    name = EXCLUDED.name,
+                    severity = EXCLUDED.severity,
+                    message = EXCLUDED.message
+            """, {
+                "device_id": device_id,
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "name": name,
+                "severity": severity,
+                "message": message
+            })
+
+def resolve_alarm(device_id: int, entity_type: str, entity_id: str) -> None:
+    """Resolve an active alarm."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE alarms 
+                SET status = 'resolved', resolved_at = NOW()
+                WHERE device_id = %(device_id)s 
+                  AND entity_type = %(entity_type)s 
+                  AND entity_id = %(entity_id)s 
+                  AND status = 'active'
+            """, {
+                "device_id": device_id,
+                "entity_type": entity_type,
+                "entity_id": entity_id
+            })
+
+def get_interface_states(device_id: int) -> dict[int, int]:
+    """Fetch current ifOperStatus for all interfaces of a device to compare against new polling results."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT if_index, if_oper_status FROM interfaces WHERE device_id = %s", (device_id,))
+            return {row[0]: row[1] for row in cur.fetchall() if row[1] is not None}

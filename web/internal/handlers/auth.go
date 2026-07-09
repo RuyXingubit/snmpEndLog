@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"snmpendlog-web/internal/auth"
-	"snmpendlog-web/internal/middleware"
+	"nms-web/internal/auth"
+	"nms-web/internal/middleware"
 )
 
 // PageTemplates holds parsed HTML template sets, keyed by page name.
@@ -28,6 +28,18 @@ func templateFuncs() template.FuncMap {
 		},
 		"formatDuration": func(ticks int64) string {
 			seconds := ticks / 100
+			days := seconds / 86400
+			hours := (seconds % 86400) / 3600
+			minutes := (seconds % 3600) / 60
+			if days > 0 {
+				return fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
+			}
+			if hours > 0 {
+				return fmt.Sprintf("%dh %dm", hours, minutes)
+			}
+			return fmt.Sprintf("%dm", minutes)
+		},
+		"formatDurationSeconds": func(seconds int64) string {
 			days := seconds / 86400
 			hours := (seconds % 86400) / 3600
 			minutes := (seconds % 3600) / 60
@@ -84,6 +96,12 @@ func templateFuncs() template.FuncMap {
 			return *t
 		},
 		"derefInt64": func(i *int64) int64 {
+			if i == nil {
+				return 0
+			}
+			return *i
+		},
+		"derefInt": func(i *int) int {
 			if i == nil {
 				return 0
 			}

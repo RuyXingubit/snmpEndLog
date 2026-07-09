@@ -1,5 +1,5 @@
 /**
- * snmpEndLog — Chart.js configuration and helpers
+ * nms — Chart.js configuration and helpers
  */
 
 'use strict';
@@ -8,13 +8,14 @@
 // Chart.js Global Defaults
 // ============================================
 if (typeof Chart !== 'undefined') {
-    Chart.defaults.color = '#94a3b8';
-    Chart.defaults.borderColor = 'rgba(56, 189, 248, 0.1)';
-    Chart.defaults.font.family = "'Inter', sans-serif";
+    // Utilize CSS variables defined in style.css
+    Chart.defaults.color = '#94A3B8'; // --text-secondary
+    Chart.defaults.borderColor = '#323842'; // --border-subtle
+    Chart.defaults.font.family = "'JetBrains Mono', monospace";
     Chart.defaults.font.size = 11;
     Chart.defaults.plugins.legend.labels.usePointStyle = true;
     Chart.defaults.plugins.legend.labels.pointStyleWidth = 8;
-    Chart.defaults.animation.duration = 500;
+    Chart.defaults.animation.duration = 0; // Brutalist: no animation or very fast
 }
 
 // Store chart instances for cleanup
@@ -54,12 +55,24 @@ function createLineChart(canvasId, labels, datasets, options = {}) {
                     align: 'end',
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(17, 24, 39, 0.95)',
-                    borderColor: 'rgba(56, 189, 248, 0.2)',
+                    backgroundColor: '#1D2127', // --bg-surface
+                    borderColor: '#4A5568', // --border-strong
                     borderWidth: 1,
                     titleFont: { weight: '600' },
-                    padding: 10,
-                    cornerRadius: 8,
+                    padding: 8,
+                    cornerRadius: 2, // Sharp corners
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += options.yFormat ? options.yFormat(context.parsed.y) : context.parsed.y;
+                            }
+                            return label;
+                        }
+                    }
                 },
             },
             scales: {
@@ -75,7 +88,7 @@ function createLineChart(canvasId, labels, datasets, options = {}) {
                 y: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(56, 189, 248, 0.05)',
+                        color: '#323842', // solid border subtle
                     },
                     ticks: {
                         callback: options.yFormat || (v => v),
@@ -83,8 +96,8 @@ function createLineChart(canvasId, labels, datasets, options = {}) {
                 },
             },
             elements: {
-                point: { radius: 0, hitRadius: 10, hoverRadius: 4 },
-                line: { tension: 0.3, borderWidth: 2 },
+                point: { radius: 0, hitRadius: 10, hoverRadius: 0 },
+                line: { tension: 0, borderWidth: 2 }, // Brutalist: no curve (stepped/straight lines)
             },
         },
     });
@@ -106,9 +119,9 @@ async function initDeviceCharts(deviceId, period) {
             {
                 label: 'CPU %',
                 data: (sysData.cpu || []).map(p => p.value),
-                borderColor: '#38bdf8',
-                backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                fill: true,
+                borderColor: '#3B82F6', // Blue
+                backgroundColor: 'transparent',
+                fill: false,
             },
         ], {
             yFormat: v => v + '%',
@@ -119,31 +132,53 @@ async function initDeviceCharts(deviceId, period) {
             {
                 label: 'Memória %',
                 data: (sysData.memory || []).map(p => p.value),
-                borderColor: '#a78bfa',
-                backgroundColor: 'rgba(167, 139, 250, 0.1)',
-                fill: true,
+                borderColor: '#F59E0B', // Orange
+                backgroundColor: 'transparent',
+                fill: false,
             },
         ], {
             yFormat: v => v + '%',
         });
 
+        // Temperature chart (if available)
+        if (sysData.temperature && sysData.temperature.length > 0) {
+            const tChart = document.getElementById('temperature-chart-card');
+            if (tChart) tChart.style.display = 'block';
+
+            const tempLabels = sysData.temperature.map(p => p.time);
+            createLineChart('chart-temperature', tempLabels, [
+                {
+                    label: 'Temperatura °C',
+                    data: sysData.temperature.map(p => p.value),
+                    borderColor: '#EF4444', // Red
+                    backgroundColor: 'transparent',
+                    fill: false,
+                },
+            ], {
+                yFormat: v => v + ' °C',
+            });
+        }
+
         // PPPoE chart (if available)
         if (sysData.pppoe && sysData.pppoe.length > 0) {
-            document.getElementById('pppoe-card').style.display = 'block';
-            document.getElementById('pppoe-chart-card').style.display = 'block';
+            const pCard = document.getElementById('pppoe-card');
+            const pChart = document.getElementById('pppoe-chart-card');
+            if (pCard) pCard.style.display = 'block';
+            if (pChart) pChart.style.display = 'block';
             
             // Set current online users in card
             const latestPPPoE = sysData.pppoe[sysData.pppoe.length - 1].value;
-            document.getElementById('pppoe-value').textContent = latestPPPoE;
+            const pVal = document.getElementById('pppoe-value');
+            if (pVal) pVal.textContent = latestPPPoE;
 
             const pppoeLabels = sysData.pppoe.map(p => p.time);
             createLineChart('chart-pppoe', pppoeLabels, [
                 {
                     label: 'PPPoE Online',
                     data: sysData.pppoe.map(p => p.value),
-                    borderColor: '#f43f5e',
-                    backgroundColor: 'rgba(244, 63, 94, 0.1)',
-                    fill: true,
+                    borderColor: '#10B981', // Green
+                    backgroundColor: 'transparent',
+                    fill: false,
                     stepped: true,
                 },
             ]);
@@ -163,16 +198,16 @@ async function initDeviceCharts(deviceId, period) {
             {
                 label: 'RTT (ms)',
                 data: (pingData.rtt || []).map(p => p.value),
-                borderColor: '#34d399',
-                backgroundColor: 'rgba(52, 211, 153, 0.1)',
-                fill: true,
+                borderColor: '#10B981', // Green
+                backgroundColor: 'transparent',
+                fill: false,
             },
             {
                 label: 'Packet Loss %',
                 data: (pingData.packet_loss || []).map(p => p.value),
-                borderColor: '#f87171',
-                backgroundColor: 'rgba(248, 113, 113, 0.1)',
-                fill: true,
+                borderColor: '#EF4444', // Red
+                backgroundColor: 'transparent',
+                fill: false,
                 yAxisID: 'y1',
             },
         ]);
@@ -183,8 +218,11 @@ async function initDeviceCharts(deviceId, period) {
 // Interface Traffic Chart (Modal)
 // ============================================
 async function showTrafficChart(deviceId, ifIndex, ifDescr) {
-    document.getElementById('traffic-modal-title').textContent = `Tráfego — ${ifDescr}`;
-    document.getElementById('traffic-modal').classList.add('active');
+    const titleEl = document.getElementById('traffic-modal-title');
+    if (titleEl) titleEl.textContent = `Tráfego — ${ifDescr}`;
+    
+    const modal = document.getElementById('traffic-modal');
+    if (modal) modal.classList.add('active');
 
     // Get active period
     const activeBtn = document.querySelector('#period-selector .chart-period.active');
@@ -197,19 +235,51 @@ async function showTrafficChart(deviceId, ifIndex, ifDescr) {
             {
                 label: '↓ In',
                 data: (data.in_bps || []).map(p => p.value),
-                borderColor: '#34d399',
-                backgroundColor: 'rgba(52, 211, 153, 0.1)',
-                fill: true,
+                borderColor: '#10B981', // Green
+                backgroundColor: 'transparent',
+                fill: false,
             },
             {
                 label: '↑ Out',
                 data: (data.out_bps || []).map(p => p.value),
-                borderColor: '#38bdf8',
-                backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                fill: true,
+                borderColor: '#3B82F6', // Blue
+                backgroundColor: 'transparent',
+                fill: false,
             },
         ], {
             yFormat: v => formatBps(v),
+        });
+    }
+}
+
+// ============================================
+// BGP State Chart (Modal)
+// ============================================
+async function showBgpChart(deviceId, peerAddr) {
+    const titleEl = document.getElementById('traffic-modal-title');
+    if (titleEl) titleEl.textContent = `BGP — ${peerAddr}`;
+    
+    const modal = document.getElementById('traffic-modal');
+    if (modal) modal.classList.add('active');
+
+    // Get active period
+    const activeBtn = document.querySelector('#period-selector .chart-period.active');
+    const period = activeBtn ? activeBtn.dataset.period : '1h';
+
+    const data = await api(`/api/metrics/bgp?device_id=${deviceId}&peer_addr=${peerAddr}&period=${period}`);
+    if (data) {
+        const labels = (data.state || []).map(p => p.time);
+        createLineChart('chart-traffic-detail', labels, [
+            {
+                label: 'Status (1=UP, 0=DOWN)',
+                data: (data.state || []).map(p => p.value),
+                borderColor: '#10B981', // Green
+                backgroundColor: 'transparent',
+                fill: false,
+                stepped: true, // Crucial para gráfico de estado (degraus)
+            },
+        ], {
+            yFormat: v => (v === 1 ? 'UP' : (v === 0 ? 'DOWN' : v)),
         });
     }
 }
