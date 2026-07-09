@@ -1,3 +1,10 @@
+## [1.2.3](https://github.com/RuyXingubit/snmpEndLog/compare/v1.2.2...v1.2.3) (2026-07-09)
+
+
+### Bug Fixes
+
+* merge consecutive same-role messages for Gemini API ([23258bc](https://github.com/RuyXingubit/snmpEndLog/commit/23258bcebcde6d2b818ce5f0bbc3add04120ebb6))
+
 ## [1.2.2](https://github.com/RuyXingubit/snmpEndLog/compare/v1.2.1...v1.2.2) (2026-07-09)
 
 
