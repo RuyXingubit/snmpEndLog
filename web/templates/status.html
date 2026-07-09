@@ -1,0 +1,134 @@
+{{template "layout.html" .}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>⚙️ Status do Sistema</h2>
+    <div class="header-actions">
+        <button class="btn btn-sm" onclick="loadStatus()">🔄 Atualizar</button>
+    </div>
+</div>
+
+<!-- Overview Cards -->
+<div class="stats-grid" id="status-overview">
+    <div class="stat-card">
+        <div class="stat-label">Banco de Dados</div>
+        <div class="stat-value" id="st-db-size">—</div>
+        <div class="stat-detail" id="st-db-uptime"></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Logs (total)</div>
+        <div class="stat-value" id="st-total-logs">—</div>
+        <div class="stat-detail" id="st-logs-rate"></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Métricas/hora</div>
+        <div class="stat-value" id="st-metrics-rate">—</div>
+        <div class="stat-detail" id="st-devices"></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Conexões DB</div>
+        <div class="stat-value" id="st-db-conns">—</div>
+        <div class="stat-detail" id="st-ai-info"></div>
+    </div>
+</div>
+
+<!-- Table Sizes -->
+<div class="card mb-md">
+    <div class="card-header" style="padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--border-color);">
+        <h3 style="font-size: 0.9rem; margin: 0;">📊 Uso do Banco por Tabela</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tabela</th>
+                    <th>Linhas (aprox)</th>
+                    <th>Tamanho</th>
+                    <th>Uso</th>
+                </tr>
+            </thead>
+            <tbody id="tables-body">
+                <tr><td colspan="4" class="empty-state">Carregando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Hypertables -->
+<div class="card mb-md">
+    <div class="card-header" style="padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--border-color);">
+        <h3 style="font-size: 0.9rem; margin: 0;">🕐 Hypertables (TimescaleDB)</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Hypertable</th>
+                    <th>Tamanho Total</th>
+                    <th>Chunks</th>
+                    <th>Compressão</th>
+                </tr>
+            </thead>
+            <tbody id="hypertables-body">
+                <tr><td colspan="4" class="empty-state">Carregando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+async function loadStatus() {
+    const data = await api('/api/status');
+    if (!data) return;
+
+    // Overview cards
+    document.getElementById('st-db-size').textContent = data.db_size || '—';
+    document.getElementById('st-db-uptime').textContent = data.db_uptime ? 'Uptime: ' + data.db_uptime : '';
+    document.getElementById('st-total-logs').textContent = (data.total_logs || 0).toLocaleString('pt-BR');
+    document.getElementById('st-logs-rate').textContent = (data.logs_last_hour || 0).toLocaleString('pt-BR') + '/hora';
+    document.getElementById('st-metrics-rate').textContent = (data.metrics_last_hour || 0).toLocaleString('pt-BR');
+    document.getElementById('st-devices').textContent = (data.total_devices || 0) + ' dispositivos';
+    document.getElementById('st-db-conns').textContent = data.db_connections || '—';
+    document.getElementById('st-ai-info').textContent = (data.ai_sessions || 0) + ' sessões IA, ' + (data.ai_messages || 0) + ' msgs';
+
+    // Table sizes
+    const tbody = document.getElementById('tables-body');
+    if (data.tables && data.tables.length > 0) {
+        const maxBytes = data.tables[0].size_bytes || 1;
+        tbody.innerHTML = data.tables.map(t => {
+            const pct = ((t.size_bytes / data.db_size_bytes) * 100).toFixed(1);
+            const barPct = Math.max(2, (t.size_bytes / maxBytes) * 100);
+            return `<tr>
+                <td><code style="font-size: 0.8rem;">${t.name}</code></td>
+                <td style="font-size: 0.8rem;">${(t.rows || 0).toLocaleString('pt-BR')}</td>
+                <td style="font-size: 0.8rem;">${t.size}</td>
+                <td style="min-width: 180px;">
+                    <div class="usage-bar-container">
+                        <div class="usage-bar" style="width: ${barPct}%"></div>
+                    </div>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">${pct}%</span>
+                </td>
+            </tr>`;
+        }).join('');
+    } else {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Nenhuma tabela encontrada</td></tr>';
+    }
+
+    // Hypertables
+    const htbody = document.getElementById('hypertables-body');
+    if (data.hypertables && data.hypertables.length > 0) {
+        htbody.innerHTML = data.hypertables.map(h => `<tr>
+            <td><code style="font-size: 0.8rem;">${h.name}</code></td>
+            <td style="font-size: 0.8rem;">${h.total_size}</td>
+            <td style="font-size: 0.8rem;">${h.num_chunks}</td>
+            <td><span class="severity-badge severity-${h.compression_status === 'off' ? 'warning' : 'info'}">${h.compression_status}</span></td>
+        </tr>`).join('');
+    } else {
+        htbody.innerHTML = '<tr><td colspan="4" class="empty-state">Nenhuma hypertable</td></tr>';
+    }
+}
+
+loadStatus();
+setInterval(loadStatus, 60000);
+</script>
+{{end}}

@@ -75,6 +75,7 @@ services:
       ADMIN_USER: ${ADMIN_USER:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
       WEB_PORT: 8080
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     networks:
       - nms_network
     labels:

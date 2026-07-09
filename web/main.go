@@ -73,6 +73,7 @@ func main() {
 	adminMux.HandleFunc("/users", handlers.HandleUsers)
 	adminMux.HandleFunc("/users/create", handlers.HandleUserCreate)
 	adminMux.HandleFunc("/users/delete", handlers.HandleUserDelete)
+	adminMux.HandleFunc("/status", handlers.HandleStatus)
 
 	authMux.Handle("/devices/add", middleware.RequireAdmin(adminMux))
 	authMux.Handle("/devices/edit", middleware.RequireAdmin(adminMux))
@@ -81,6 +82,7 @@ func main() {
 	authMux.Handle("/users/", middleware.RequireAdmin(adminMux))
 	authMux.Handle("/users/create", middleware.RequireAdmin(adminMux))
 	authMux.Handle("/users/delete", middleware.RequireAdmin(adminMux))
+	authMux.Handle("/status", middleware.RequireAdmin(adminMux))
 
 	mux.Handle("/", middleware.RequireAuth(authMux))
 
@@ -98,6 +100,7 @@ func main() {
 	apiMux.HandleFunc("/api/alarms/", handlers.HandleAPIAlarmResolve)
 	apiMux.HandleFunc("/api/ai/sessions", handlers.HandleAISessions)
 	apiMux.HandleFunc("/api/ai/sessions/", handlers.HandleAISessionAction)
+	apiMux.HandleFunc("/api/status", handlers.HandleAPIStatus)
 
 	mux.Handle("/api/", middleware.RequireAPI(apiMux))
 
