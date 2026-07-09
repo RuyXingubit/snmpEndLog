@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.2.3...v1.3.0) (2026-07-09)
+
+
+### Features
+
+* add clear context button to AI analysis ([904e0a7](https://github.com/RuyXingubit/snmpEndLog/commit/904e0a79f826475e3aed87e189b7520f9ad96fea))
+
 ## [1.2.3](https://github.com/RuyXingubit/snmpEndLog/compare/v1.2.2...v1.2.3) (2026-07-09)
 
 
