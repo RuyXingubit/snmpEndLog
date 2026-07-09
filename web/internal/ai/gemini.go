@@ -105,9 +105,15 @@ func Analyze(messages []Message) (string, error) {
 		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
-	url := geminiEndpoint + "?key=" + apiKey
 	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Post(url, "application/json", bytes.NewReader(jsonData))
+	req, err := http.NewRequest("POST", geminiEndpoint, bytes.NewReader(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-goog-api-key", apiKey)
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("gemini request: %w", err)
 	}
