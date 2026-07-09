@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/RuyXingubit/snmpEndLog/compare/v1.1.1...v1.1.2) (2026-07-09)
+
+
+### Bug Fixes
+
+* add 120s timeout per device poll to prevent cycle blocking ([bbe28a3](https://github.com/RuyXingubit/snmpEndLog/commit/bbe28a3822b0dff2fe046c3aeeb1b3b8860dba72))
+
 ## [1.1.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.1.0...v1.1.1) (2026-07-09)
 
 
