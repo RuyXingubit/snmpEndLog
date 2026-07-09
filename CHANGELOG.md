@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/RuyXingubit/snmpEndLog/compare/v1.2.1...v1.2.2) (2026-07-09)
+
+
+### Bug Fixes
+
+* use X-goog-api-key header for Gemini auth ([16f14d7](https://github.com/RuyXingubit/snmpEndLog/commit/16f14d7b2b1ed3c980608ab1806c858b5dcc380f))
+
 ## [1.2.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.2.0...v1.2.1) (2026-07-09)
 
 
