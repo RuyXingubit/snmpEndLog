@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	geminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+	geminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
 	maxTokens      = 8192
 )
 
