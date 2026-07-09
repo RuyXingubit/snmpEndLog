@@ -84,7 +84,9 @@ class PingPoller:
                     **result,
                 }])
 
-                if not result["is_reachable"]:
+                if result["is_reachable"]:
+                    db.update_device_status(device_id, "up")
+                else:
                     db.update_device_status(device_id, "down")
 
             except asyncio.CancelledError:
