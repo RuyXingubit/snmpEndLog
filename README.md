@@ -34,7 +34,7 @@ Arquitetura híbrida: **Python** para coleta SNMP e recepção de logs, **Go** p
 
 ```bash
 # 1. Clone o repositório
-git clone <repo-url> NMS
+git clone https://github.com/RuyXingubit/snmpEndLog NMS
 cd NMS
 
 # 2. Configure o ambiente
