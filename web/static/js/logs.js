@@ -62,13 +62,18 @@ async function loadLogStats() {
 
 function filterBySeverity(severity) {
     document.getElementById('log-severity').value = severity;
+    currentPage = 1;
     searchLogs();
 }
 
 // ============================================
 // Search Logs
 // ============================================
-async function searchLogs() {
+async function searchLogs(resetPage = true) {
+    if (resetPage) {
+        currentPage = 1;
+    }
+
     const q = document.getElementById('log-search').value;
     const host = document.getElementById('log-host').value;
     const severity = document.getElementById('log-severity').value;
@@ -157,7 +162,7 @@ function renderLogs(data) {
 function changePage(delta) {
     currentPage += delta;
     if (currentPage < 1) currentPage = 1;
-    searchLogs();
+    searchLogs(false);
 }
 
 // ============================================
