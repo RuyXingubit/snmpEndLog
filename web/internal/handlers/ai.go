@@ -130,6 +130,8 @@ func HandleAISessionAction(w http.ResponseWriter, r *http.Request) {
 		handleGetMessages(w, ctx, sessionID)
 	case r.Method == http.MethodPost && action == "context":
 		handleAddContext(w, r, ctx, sessionID)
+	case r.Method == http.MethodDelete && action == "context":
+		handleClearContext(w, ctx, sessionID)
 	case r.Method == http.MethodPost && action == "ask":
 		handleAsk(w, r, ctx, sessionID)
 	default:
@@ -144,6 +146,15 @@ func handleDeleteSession(w http.ResponseWriter, ctx context.Context, sessionID i
 		return
 	}
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func handleClearContext(w http.ResponseWriter, ctx context.Context, sessionID int) {
+	_, err := db.Pool.Exec(ctx, `DELETE FROM ai_messages WHERE session_id = $1`, sessionID)
+	if err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	jsonResponse(w, http.StatusOK, map[string]string{"status": "cleared"})
 }
 
 func handleGetMessages(w http.ResponseWriter, ctx context.Context, sessionID int) {

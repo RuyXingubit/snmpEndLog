@@ -150,6 +150,18 @@ function updateContextInfo() {
 }
 
 // ============================================
+// Clear Context
+// ============================================
+async function clearContext() {
+    if (!currentSessionId) return;
+    if (!confirm('Limpar todo o contexto e conversa desta sessão?')) return;
+
+    await api(`/api/ai/sessions/${currentSessionId}/context`, { method: 'DELETE' });
+    contextLogCount = 0;
+    await loadMessages();
+}
+
+// ============================================
 // Add Context
 // ============================================
 async function addContext() {
