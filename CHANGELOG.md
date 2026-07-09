@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.1.3...v1.2.0) (2026-07-09)
+
+
+### Features
+
+* add AI log analysis with Gemini + CSV export + scroll fix ([6756e31](https://github.com/RuyXingubit/snmpEndLog/commit/6756e31a05b47b555bef24a99ce1c67c358306f9))
+
 ## [1.1.3](https://github.com/RuyXingubit/snmpEndLog/compare/v1.1.2...v1.1.3) (2026-07-09)
 
 
