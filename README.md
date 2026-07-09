@@ -58,7 +58,7 @@ O repositório possui imagens pré-compiladas no Docker Hub (`xingubit`). O sist
 
 1. Baixe o `docker-compose.prod.yml`:
    ```bash
-   wget https://raw.githubusercontent.com/xingubit/snmpendlog/main/docker-compose.prod.yml -O docker-compose.yml
+   wget https://raw.githubusercontent.com/RuyXingubit/snmpEndLog/refs/heads/main/docker-compose.prod.yml -O docker-compose.yml
    ```
 
 2. Crie e edite o arquivo `.env`:
