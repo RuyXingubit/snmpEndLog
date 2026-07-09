@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.3.1...v1.4.0) (2026-07-09)
+
+
+### Features
+
+* add system status page + update README and prod compose ([cb6092a](https://github.com/RuyXingubit/snmpEndLog/commit/cb6092ac98d3fb251e9651ce3f3df6acf0c26e17))
+
 ## [1.3.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.3.0...v1.3.1) (2026-07-09)
 
 
