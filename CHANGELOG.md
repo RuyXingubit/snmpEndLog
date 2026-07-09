@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.0.0...v1.0.1) (2026-07-09)
+
+
+### Bug Fixes
+
+* hardcode network name in production compose to match Caddy ingress ([cbd939f](https://github.com/RuyXingubit/snmpEndLog/commit/cbd939fba95c1f43c9dc63f0fb165c5269ba4719))
+
 # 1.0.0 (2026-07-09)
 
 
