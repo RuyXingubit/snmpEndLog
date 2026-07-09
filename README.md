@@ -67,9 +67,20 @@ O repositório possui imagens pré-compiladas no Docker Hub (`xingubit`). O sist
    # Adicione e edite as seguintes variáveis:
    # DOMAIN=seu-dominio.com
    # ACME_EMAIL=seu-email@dominio.com (usado para gerar o certificado SSL)
-   # POSTGRES_PASSWORD=senha-super-segura
-   # JWT_SECRET=chave-secreta-longa
-   # ADMIN_PASSWORD=senha-do-admin
+   ```
+   
+   **Gerando senhas fortes automaticamente:**
+   Para garantir a máxima segurança em produção, não invente as senhas. Use os comandos abaixo no terminal do Linux para gerar senhas altamente seguras e copie os resultados para o seu arquivo `.env`:
+   
+   ```bash
+   # Gerar POSTGRES_PASSWORD:
+   echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)" >> .env
+   
+   # Gerar JWT_SECRET:
+   echo "JWT_SECRET=$(openssl rand -hex 64)" >> .env
+   
+   # Gerar ADMIN_PASSWORD (a senha que você usará para entrar no painel web):
+   echo "ADMIN_PASSWORD=$(openssl rand -base64 12)" >> .env
    ```
 
 3. Suba o sistema:
