@@ -169,3 +169,17 @@ function escapeHtml(str) {
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
 }
+
+// ============================================
+// CSV Export
+// ============================================
+function exportCSV() {
+    const q = document.getElementById('log-search').value;
+    const host = document.getElementById('log-host').value;
+    const severity = document.getElementById('log-severity').value;
+    const period = document.getElementById('log-period').value;
+
+    const params = new URLSearchParams({ q, host, severity, period });
+    window.location.href = `/api/logs/export?${params}`;
+}
+

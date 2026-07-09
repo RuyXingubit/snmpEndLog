@@ -34,6 +34,10 @@
                 <span class="nav-icon">📋</span>
                 Logs
             </a>
+            <a href="/ai" class="nav-item{{if eq .Title "Análise IA"}} active{{end}}">
+                <span class="nav-icon">🤖</span>
+                Análise IA
+            </a>
             {{if eq .Role "admin"}}
             <div class="nav-section" style="margin-top: 1rem;">Administração</div>
             <a href="/users" class="nav-item{{if eq .Title "Usuários"}} active{{end}}">

@@ -133,6 +133,7 @@ func InitTemplates(dir string) error {
 		"device_edit.html",
 		"logs.html",
 		"users.html",
+		"ai.html",
 	}
 
 	for _, page := range pages {

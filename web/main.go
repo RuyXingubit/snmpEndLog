@@ -63,6 +63,7 @@ func main() {
 	authMux.HandleFunc("/devices", handlers.HandleDevices)
 	authMux.HandleFunc("/devices/", handlers.HandleDeviceDetail)
 	authMux.HandleFunc("/logs", handlers.HandleLogs)
+	authMux.HandleFunc("/ai", handlers.HandleAI)
 
 	// Admin-only page routes (wrapped with RequireAdmin)
 	adminMux := http.NewServeMux()
@@ -92,8 +93,11 @@ func main() {
 	apiMux.HandleFunc("/api/logs", handlers.HandleAPILogs)
 	apiMux.HandleFunc("/api/logs/stats", handlers.HandleAPILogStats)
 	apiMux.HandleFunc("/api/logs/hosts", handlers.HandleAPILogHosts)
+	apiMux.HandleFunc("/api/logs/export", handlers.HandleAPILogExport)
 	apiMux.HandleFunc("/api/alarms", handlers.HandleAPIAlarms)
 	apiMux.HandleFunc("/api/alarms/", handlers.HandleAPIAlarmResolve)
+	apiMux.HandleFunc("/api/ai/sessions", handlers.HandleAISessions)
+	apiMux.HandleFunc("/api/ai/sessions/", handlers.HandleAISessionAction)
 
 	mux.Handle("/api/", middleware.RequireAPI(apiMux))
 
@@ -111,7 +115,7 @@ func main() {
 		Addr:         addr,
 		Handler:      handler,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 90 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 

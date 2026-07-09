@@ -183,3 +183,80 @@ func HandleAPILogHosts(w http.ResponseWriter, r *http.Request) {
 
 	jsonResponse(w, http.StatusOK, hosts)
 }
+
+// HandleAPILogExport streams filtered logs as CSV download.
+// GET /api/logs/export?host=X&severity=error&q=text&period=1h
+func HandleAPILogExport(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	host := strings.TrimSpace(q.Get("host"))
+	severity := strings.TrimSpace(q.Get("severity"))
+	search := strings.TrimSpace(q.Get("q"))
+	period := parsePeriod(q.Get("period"))
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	// Build dynamic query
+	where := []string{"time > NOW() - $1::interval"}
+	args := []interface{}{period}
+	argIdx := 2
+
+	if host != "" {
+		where = append(where, "host = $"+strconv.Itoa(argIdx))
+		args = append(args, host)
+		argIdx++
+	}
+
+	if severity != "" {
+		where = append(where, "severity_name = $"+strconv.Itoa(argIdx))
+		args = append(args, severity)
+		argIdx++
+	}
+
+	if search != "" {
+		where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
+		args = append(args, search)
+		argIdx++
+	}
+
+	whereClause := strings.Join(where, " AND ")
+	query := "SELECT time, host, COALESCE(severity_name, 'unknown'), COALESCE(app_name, ''), message FROM logs WHERE " +
+		whereClause + " ORDER BY time DESC LIMIT 10000"
+
+	rows, err := db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		http.Error(w, "Query error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=logs_export.csv")
+
+	// BOM for Excel UTF-8 support
+	w.Write([]byte("\xEF\xBB\xBF"))
+	w.Write([]byte("Timestamp,Host,Severity,App,Message\r\n"))
+
+	for rows.Next() {
+		var t time.Time
+		var h, sev, app, msg string
+		if err := rows.Scan(&t, &h, &sev, &app, &msg); err != nil {
+			continue
+		}
+
+		// Escape CSV fields (double-quote fields containing commas/quotes/newlines)
+		escapeCsv := func(s string) string {
+			if strings.ContainsAny(s, ",\"\r\n") {
+				return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
+			}
+			return s
+		}
+
+		line := t.Format("2006-01-02 15:04:05") + "," +
+			escapeCsv(h) + "," +
+			escapeCsv(sev) + "," +
+			escapeCsv(app) + "," +
+			escapeCsv(msg) + "\r\n"
+		w.Write([]byte(line))
+	}
+}

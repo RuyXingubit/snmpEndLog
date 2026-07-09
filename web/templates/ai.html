@@ -1,0 +1,80 @@
+{{template "layout.html" .}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>🤖 Análise IA</h2>
+    <div class="header-actions">
+        <button class="btn btn-primary btn-sm" onclick="createSession()">+ Nova Sessão</button>
+    </div>
+</div>
+
+<div class="ai-layout">
+    <!-- Sidebar: Sessions -->
+    <div class="ai-sidebar card">
+        <div class="ai-sidebar-header">
+            <h3>Sessões</h3>
+        </div>
+        <div class="ai-session-list" id="session-list">
+            <div class="empty-state" style="padding: 1rem;">
+                <p class="text-muted" style="font-size: 0.8rem;">Nenhuma sessão. Crie uma nova para começar.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main: Chat Area -->
+    <div class="ai-main card">
+        <div id="ai-no-session" class="ai-empty-state">
+            <div class="empty-icon">🤖</div>
+            <h3>Análise de Logs com IA</h3>
+            <p>Selecione ou crie uma sessão para começar a análise.</p>
+            <p class="text-muted" style="font-size: 0.8rem;">Você pode adicionar logs de múltiplos dispositivos e períodos ao contexto, depois fazer perguntas sobre eles.</p>
+        </div>
+
+        <div id="ai-session-view" style="display:none; height:100%; display:none; flex-direction:column;">
+            <!-- Context builder -->
+            <div class="ai-context-bar">
+                <select class="form-input form-select" id="ai-host" style="min-width: 140px;">
+                    <option value="">Todos os hosts</option>
+                </select>
+                <select class="form-input form-select" id="ai-severity" style="min-width: 130px;">
+                    <option value="">Todas severidades</option>
+                    <option value="emergency">🔴 Emergency</option>
+                    <option value="alert">🔴 Alert</option>
+                    <option value="critical">🔴 Critical</option>
+                    <option value="error">🟠 Error</option>
+                    <option value="warning">🟡 Warning</option>
+                    <option value="notice">🔵 Notice</option>
+                    <option value="info">🔵 Info</option>
+                </select>
+                <select class="form-input form-select" id="ai-period" style="min-width: 130px;">
+                    <option value="15m">Últimos 15 min</option>
+                    <option value="1h" selected>Última hora</option>
+                    <option value="6h">Últimas 6 horas</option>
+                    <option value="24h">Últimas 24 horas</option>
+                    <option value="7d">Últimos 7 dias</option>
+                </select>
+                <button class="btn btn-sm" onclick="addContext()" id="btn-add-context">📎 Adicionar ao Contexto</button>
+                <span class="text-muted" id="context-info" style="font-size: 0.75rem;"></span>
+            </div>
+
+            <!-- Messages -->
+            <div class="ai-messages" id="ai-messages">
+                <!-- Messages rendered here -->
+            </div>
+
+            <!-- Input -->
+            <div class="ai-input-bar">
+                <input type="text" class="form-input" id="ai-question"
+                       placeholder="Faça uma pergunta sobre os logs..." style="flex: 1;">
+                <button class="btn btn-primary" onclick="askAI()" id="btn-ask">Analisar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/ai.js"></script>
+<script>
+    loadSessions();
+    loadAIHosts();
+</script>
+{{end}}
