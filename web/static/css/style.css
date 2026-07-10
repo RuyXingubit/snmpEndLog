@@ -1003,10 +1003,14 @@ td.mono {
     padding: var(--space-sm) var(--space-md);
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
+    align-items: flex-end;
 }
 
 .ai-input-bar .form-input {
     font-size: 0.85rem;
+    line-height: 1.4;
+    overflow-y: hidden;
+    min-height: 36px;
 }
 
 /* Responsive */

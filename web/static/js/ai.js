@@ -123,7 +123,7 @@ async function loadMessages() {
         } else if (m.role === 'user') {
             html += `
                 <div class="ai-msg ai-msg-user">
-                    <div class="ai-msg-content">${escapeHtml(m.content)}</div>
+                    <div class="ai-msg-content">${escapeHtml(m.content).replace(/\n/g, '<br>')}</div>
                 </div>
             `;
         } else if (m.role === 'assistant') {
@@ -212,11 +212,12 @@ async function askAI() {
     btn.textContent = '⏳ Analisando...';
     input.disabled = true;
 
-    // Immediately show user message
+    // Immediately show user message (preserve line breaks)
     const container = document.getElementById('ai-messages');
+    const escapedQuestion = escapeHtml(question).replace(/\n/g, '<br>');
     container.innerHTML += `
         <div class="ai-msg ai-msg-user">
-            <div class="ai-msg-content">${escapeHtml(question)}</div>
+            <div class="ai-msg-content">${escapedQuestion}</div>
         </div>
         <div class="ai-msg ai-msg-assistant" id="ai-loading">
             <div class="ai-msg-content"><div class="loading-spinner" style="margin: 0 auto;"></div></div>
@@ -224,6 +225,7 @@ async function askAI() {
     `;
     container.scrollTop = container.scrollHeight;
     input.value = '';
+    input.style.height = 'auto'; // Reset textarea height
 
     const result = await api(`/api/ai/sessions/${currentSessionId}/ask`, {
         method: 'POST',
@@ -326,12 +328,27 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
-// Enter key sends question
+// Textarea: Enter sends, Shift+Enter adds new line, auto-resize
 document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('ai-question');
-    if (input) {
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') askAI();
-        });
+    if (!input) return;
+
+    // Max height ~10 lines (10 * ~1.4em line-height * 14px base ≈ 200px)
+    const MAX_HEIGHT = 200;
+
+    function autoResize() {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, MAX_HEIGHT) + 'px';
+        // Show scrollbar only when content exceeds max
+        input.style.overflowY = input.scrollHeight > MAX_HEIGHT ? 'auto' : 'hidden';
     }
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            askAI();
+        }
+    });
+
+    input.addEventListener('input', autoResize);
 });

@@ -65,8 +65,8 @@
 
             <!-- Input -->
             <div class="ai-input-bar">
-                <input type="text" class="form-input" id="ai-question"
-                       placeholder="Faça uma pergunta sobre os logs..." style="flex: 1;">
+                <textarea class="form-input" id="ai-question" rows="1"
+                       placeholder="Faça uma pergunta sobre os logs... (Shift+Enter para nova linha)" style="flex: 1; resize: none;"></textarea>
                 <button class="btn btn-primary" onclick="askAI()" id="btn-ask">Analisar</button>
             </div>
         </div>
