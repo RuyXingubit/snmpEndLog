@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.5.0...v1.5.1) (2026-07-10)
+
+
+### Bug Fixes
+
+* **logs:** busca expandida para message + app_name ([5fd2b04](https://github.com/RuyXingubit/snmpEndLog/commit/5fd2b04e69047b8cf87f651aba47277b7ae87e31))
+
 # [1.5.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.4.0...v1.5.0) (2026-07-10)
 
 
