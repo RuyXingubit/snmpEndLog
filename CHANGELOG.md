@@ -1,3 +1,10 @@
+## [1.7.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.7.0...v1.7.1) (2026-07-10)
+
+
+### Bug Fixes
+
+* **css:** filtros não esticam mais com scroll horizontal da tabela ([97c4b87](https://github.com/RuyXingubit/snmpEndLog/commit/97c4b87e85b001c195cfa0c353b48c486a14444f))
+
 # [1.7.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.6.0...v1.7.0) (2026-07-10)
 
 
