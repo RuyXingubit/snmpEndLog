@@ -490,6 +490,10 @@ td.mono {
     margin-bottom: var(--space-xl);
 }
 
+.dashboard-grid > * {
+    min-width: 0;
+}
+
 .dashboard-grid-full {
     grid-column: 1 / -1;
 }
