@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.4.0...v1.5.0) (2026-07-10)
+
+
+### Features
+
+* **logs:** pesquisa por palavra-chave com highlight, envio para IA e exportação TXT ([15bcbd3](https://github.com/RuyXingubit/snmpEndLog/commit/15bcbd3de54a5974925f604c457f536a289fb129))
+
 # [1.4.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.3.1...v1.4.0) (2026-07-09)
 
 
