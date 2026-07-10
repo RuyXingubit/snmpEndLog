@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.6.0...v1.7.0) (2026-07-10)
+
+
+### Features
+
+* período customizado com date pickers em todas as telas ([ed4dafc](https://github.com/RuyXingubit/snmpEndLog/commit/ed4dafc7084be7d0b257e2377830eb61da20c80e))
+
 # [1.6.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.5.1...v1.6.0) (2026-07-10)
 
 
