@@ -29,8 +29,13 @@ async function loadHosts() {
 // Load Severity Stats Cards
 // ============================================
 async function loadLogStats() {
-    const period = document.getElementById('log-period').value;
-    const stats = await api(`/api/logs/stats?period=${period}`);
+    const pp = getPeriodParams('log-period');
+    const params = new URLSearchParams({ period: pp.period });
+    if (pp.period === 'custom') {
+        params.set('start', pp.start);
+        params.set('end', pp.end);
+    }
+    const stats = await api(`/api/logs/stats?${params}`);
     if (!stats) return;
 
     const container = document.getElementById('severity-stats');
@@ -74,10 +79,10 @@ function getFilterParams() {
     const q = document.getElementById('log-search').value;
     const host = document.getElementById('log-host').value;
     const severity = document.getElementById('log-severity').value;
-    const period = document.getElementById('log-period').value;
     const exact = document.getElementById('log-exact').checked;
+    const periodParams = getPeriodParams('log-period');
 
-    return { q, host, severity, period, exact };
+    return { q, host, severity, exact, ...periodParams };
 }
 
 // ============================================
@@ -100,6 +105,10 @@ async function searchLogs(resetPage = true) {
     });
     if (filters.exact) {
         params.set('exact', 'true');
+    }
+    if (filters.period === 'custom') {
+        params.set('start', filters.start);
+        params.set('end', filters.end);
     }
 
     const data = await api(`/api/logs?${params}`);
@@ -222,6 +231,10 @@ function exportCSV() {
     if (filters.exact) {
         params.set('exact', 'true');
     }
+    if (filters.period === 'custom') {
+        params.set('start', filters.start);
+        params.set('end', filters.end);
+    }
     window.location.href = `/api/logs/export?${params}`;
 }
 
@@ -238,6 +251,10 @@ function exportTXT() {
     });
     if (filters.exact) {
         params.set('exact', 'true');
+    }
+    if (filters.period === 'custom') {
+        params.set('start', filters.start);
+        params.set('end', filters.end);
     }
     window.location.href = `/api/logs/export/txt?${params}`;
 }
@@ -325,6 +342,8 @@ async function confirmSendToAI() {
         period: filters.period,
         q: filters.q,
         exact: filters.exact,
+        start: filters.start || '',
+        end: filters.end || '',
     };
 
     const result = await api(`/api/ai/sessions/${selectedAISessionId}/context`, {

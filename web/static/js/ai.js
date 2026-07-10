@@ -174,10 +174,13 @@ async function addContext() {
     btn.disabled = true;
     btn.textContent = '⏳ Carregando...';
 
+    const pp = getPeriodParams('ai-period');
     const body = {
         host: document.getElementById('ai-host').value,
         severity: document.getElementById('ai-severity').value,
-        period: document.getElementById('ai-period').value,
+        period: pp.period,
+        start: pp.start || '',
+        end: pp.end || '',
     };
 
     const result = await api(`/api/ai/sessions/${currentSessionId}/context`, {

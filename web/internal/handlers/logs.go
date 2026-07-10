@@ -49,7 +49,7 @@ func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
 	host := strings.TrimSpace(q.Get("host"))
 	severity := strings.TrimSpace(q.Get("severity"))
 	search := strings.TrimSpace(q.Get("q"))
-	period := parsePeriod(q.Get("period"))
+	tf := parseTimeFilter(r)
 	exact := q.Get("exact") == "true"
 	page, _ := strconv.Atoi(q.Get("page"))
 	perPage, _ := strconv.Atoi(q.Get("per_page"))
@@ -66,9 +66,10 @@ func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	// Build dynamic query
-	where := []string{"time > NOW() - $1::interval"}
-	args := []interface{}{period}
-	argIdx := 2
+	var where []string
+	var args []interface{}
+	argIdx := 1
+	where, args, argIdx = tf.AppendTimeWhere(where, args, argIdx)
 
 	if host != "" {
 		where = append(where, "host = $"+strconv.Itoa(argIdx))
@@ -136,18 +137,20 @@ func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
 // HandleAPILogStats returns log counts by severity for the dashboard.
 // GET /api/logs/stats?period=1h
 func HandleAPILogStats(w http.ResponseWriter, r *http.Request) {
-	period := parsePeriod(r.URL.Query().Get("period"))
+	tf := parseTimeFilter(r)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	rows, err := db.Pool.Query(ctx, `
-		SELECT COALESCE(severity_name, 'unknown') AS sev, COUNT(*)
-		FROM logs
-		WHERE time > NOW() - $1::interval
-		GROUP BY sev
-		ORDER BY COUNT(*) DESC
-	`, period)
+	var where []string
+	var args []interface{}
+	argIdx := 1
+	where, args, _ = tf.AppendTimeWhere(where, args, argIdx)
+
+	query := "SELECT COALESCE(severity_name, 'unknown') AS sev, COUNT(*) FROM logs WHERE " +
+		strings.Join(where, " AND ") + " GROUP BY sev ORDER BY COUNT(*) DESC"
+
+	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {
 		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
@@ -201,16 +204,17 @@ func HandleAPILogExport(w http.ResponseWriter, r *http.Request) {
 	host := strings.TrimSpace(q.Get("host"))
 	severity := strings.TrimSpace(q.Get("severity"))
 	search := strings.TrimSpace(q.Get("q"))
-	period := parsePeriod(q.Get("period"))
+	tf := parseTimeFilter(r)
 	exact := q.Get("exact") == "true"
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
 	// Build dynamic query
-	where := []string{"time > NOW() - $1::interval"}
-	args := []interface{}{period}
-	argIdx := 2
+	var where []string
+	var args []interface{}
+	argIdx := 1
+	where, args, argIdx = tf.AppendTimeWhere(where, args, argIdx)
 
 	if host != "" {
 		where = append(where, "host = $"+strconv.Itoa(argIdx))
@@ -285,16 +289,17 @@ func HandleAPILogExportTXT(w http.ResponseWriter, r *http.Request) {
 	host := strings.TrimSpace(q.Get("host"))
 	severity := strings.TrimSpace(q.Get("severity"))
 	search := strings.TrimSpace(q.Get("q"))
-	period := parsePeriod(q.Get("period"))
+	tf := parseTimeFilter(r)
 	exact := q.Get("exact") == "true"
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
 	// Build dynamic query
-	where := []string{"time > NOW() - $1::interval"}
-	args := []interface{}{period}
-	argIdx := 2
+	var where []string
+	var args []interface{}
+	argIdx := 1
+	where, args, argIdx = tf.AppendTimeWhere(where, args, argIdx)
 
 	if host != "" {
 		where = append(where, "host = $"+strconv.Itoa(argIdx))

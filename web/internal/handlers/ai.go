@@ -195,18 +195,21 @@ func handleAddContext(w http.ResponseWriter, r *http.Request, ctx context.Contex
 		Period   string `json:"period"`
 		Search   string `json:"q"`
 		Exact    bool   `json:"exact"`
+		Start    string `json:"start"`
+		End      string `json:"end"`
 	}
 	if err := parseJSON(r, &body); err != nil {
 		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}
 
-	period := parsePeriod(body.Period)
+	tf := parseTimeFilterFromBody(body.Period, body.Start, body.End)
 
 	// Build query for logs
-	where := []string{"time > NOW() - $1::interval"}
-	args := []interface{}{period}
-	argIdx := 2
+	var where []string
+	var args []interface{}
+	argIdx := 1
+	where, args, argIdx = tf.AppendTimeWhere(where, args, argIdx)
 
 	if body.Host != "" {
 		where = append(where, "host = $"+strconv.Itoa(argIdx))

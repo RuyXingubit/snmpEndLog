@@ -81,8 +81,12 @@
     </div>
 </div>
 
+<script src="/static/js/period-picker.js"></script>
 <script src="/static/js/logs.js"></script>
 <script>
+    // Initialize period picker with custom date range support
+    initPeriodPicker('log-period', { onChange: searchLogs });
+
     // Initial load
     loadHosts();
     loadLogStats();
@@ -99,7 +103,7 @@
     });
 
     // Filter change triggers search
-    ['log-host', 'log-severity', 'log-period'].forEach(id => {
+    ['log-host', 'log-severity'].forEach(id => {
         document.getElementById(id).addEventListener('change', searchLogs);
     });
 

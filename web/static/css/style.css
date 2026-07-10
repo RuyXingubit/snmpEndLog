@@ -1047,3 +1047,42 @@ td.mono {
     border-radius: 3px;
     transition: width 0.5s ease;
 }
+
+/* ============================================
+   Custom Date Range Picker
+   ============================================ */
+.custom-date-range {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background: var(--surface-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.custom-date-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.custom-date-input {
+    font-size: 0.8rem !important;
+    padding: 0.3rem 0.5rem !important;
+    min-width: 180px;
+    color-scheme: dark;
+}
+
+/* Device page: custom range inline with period buttons */
+.chart-controls .custom-date-range {
+    margin-top: 0;
+    padding: 0.3rem 0.5rem;
+    border: none;
+    background: transparent;
+}

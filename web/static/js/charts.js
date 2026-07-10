@@ -226,7 +226,12 @@ async function showTrafficChart(deviceId, ifIndex, ifDescr) {
 
     // Get active period
     const activeBtn = document.querySelector('#period-selector .chart-period.active');
-    const period = activeBtn ? activeBtn.dataset.period : '1h';
+    let period = activeBtn ? activeBtn.dataset.period : '1h';
+    if (period === 'custom') {
+        const s = document.getElementById('device-period-start').value;
+        const e = document.getElementById('device-period-end').value;
+        period = `custom&start=${s}&end=${e}`;
+    }
 
     const data = await api(`/api/metrics/traffic?device_id=${deviceId}&if_index=${ifIndex}&period=${period}`);
     if (data) {
@@ -264,7 +269,12 @@ async function showBgpChart(deviceId, peerAddr) {
 
     // Get active period
     const activeBtn = document.querySelector('#period-selector .chart-period.active');
-    const period = activeBtn ? activeBtn.dataset.period : '1h';
+    let period = activeBtn ? activeBtn.dataset.period : '1h';
+    if (period === 'custom') {
+        const s = document.getElementById('device-period-start').value;
+        const e = document.getElementById('device-period-end').value;
+        period = `custom&start=${s}&end=${e}`;
+    }
 
     const data = await api(`/api/metrics/bgp?device_id=${deviceId}&peer_addr=${peerAddr}&period=${period}`);
     if (data) {
