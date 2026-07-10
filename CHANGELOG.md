@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.5.1...v1.6.0) (2026-07-10)
+
+
+### Features
+
+* **ai:** textarea multiline com Shift+Enter e auto-resize ([d91cf46](https://github.com/RuyXingubit/snmpEndLog/commit/d91cf4610fa79185bd03b9e97c3c82e973f76953))
+
 ## [1.5.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.5.0...v1.5.1) (2026-07-10)
 
 
