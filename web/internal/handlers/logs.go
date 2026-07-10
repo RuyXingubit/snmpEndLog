@@ -84,12 +84,14 @@ func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
 
 	if search != "" {
 		if exact {
-			// ILIKE for exact substring match — better for technical keywords like PKT_OUTQUEDROP
-			where = append(where, "message ILIKE $"+strconv.Itoa(argIdx))
+			// ILIKE for exact substring match — search in both message and app_name
+			where = append(where, "(message ILIKE $"+strconv.Itoa(argIdx)+" OR app_name ILIKE $"+strconv.Itoa(argIdx)+")")
 			args = append(args, "%"+search+"%")
 		} else {
-			where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
-			args = append(args, search)
+			// Full-text on message + ILIKE fallback on app_name
+			where = append(where, "(to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+") OR app_name ILIKE $"+strconv.Itoa(argIdx+1)+")")
+			args = append(args, search, "%"+search+"%")
+			argIdx++ // extra arg for app_name ILIKE
 		}
 		argIdx++
 	}
@@ -224,11 +226,12 @@ func HandleAPILogExport(w http.ResponseWriter, r *http.Request) {
 
 	if search != "" {
 		if exact {
-			where = append(where, "message ILIKE $"+strconv.Itoa(argIdx))
+			where = append(where, "(message ILIKE $"+strconv.Itoa(argIdx)+" OR app_name ILIKE $"+strconv.Itoa(argIdx)+")")
 			args = append(args, "%"+search+"%")
 		} else {
-			where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
-			args = append(args, search)
+			where = append(where, "(to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+") OR app_name ILIKE $"+strconv.Itoa(argIdx+1)+")")
+			args = append(args, search, "%"+search+"%")
+			argIdx++
 		}
 		argIdx++
 	}
@@ -307,11 +310,12 @@ func HandleAPILogExportTXT(w http.ResponseWriter, r *http.Request) {
 
 	if search != "" {
 		if exact {
-			where = append(where, "message ILIKE $"+strconv.Itoa(argIdx))
+			where = append(where, "(message ILIKE $"+strconv.Itoa(argIdx)+" OR app_name ILIKE $"+strconv.Itoa(argIdx)+")")
 			args = append(args, "%"+search+"%")
 		} else {
-			where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
-			args = append(args, search)
+			where = append(where, "(to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+") OR app_name ILIKE $"+strconv.Itoa(argIdx+1)+")")
+			args = append(args, search, "%"+search+"%")
+			argIdx++
 		}
 		argIdx++
 	}

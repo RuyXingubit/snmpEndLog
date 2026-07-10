@@ -222,11 +222,12 @@ func handleAddContext(w http.ResponseWriter, r *http.Request, ctx context.Contex
 
 	if body.Search != "" {
 		if body.Exact {
-			where = append(where, "message ILIKE $"+strconv.Itoa(argIdx))
+			where = append(where, "(message ILIKE $"+strconv.Itoa(argIdx)+" OR app_name ILIKE $"+strconv.Itoa(argIdx)+")")
 			args = append(args, "%"+body.Search+"%")
 		} else {
-			where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
-			args = append(args, body.Search)
+			where = append(where, "(to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+") OR app_name ILIKE $"+strconv.Itoa(argIdx+1)+")")
+			args = append(args, body.Search, "%"+body.Search+"%")
+			argIdx++
 		}
 		argIdx++
 	}
