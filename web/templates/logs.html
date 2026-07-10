@@ -13,6 +13,10 @@
     <div class="log-filters">
         <input type="text" class="form-input" id="log-search" placeholder="🔍 Buscar nos logs..."
                style="flex: 2;">
+        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; cursor: pointer;" title="Busca exata por substring (ILIKE). Melhor para termos técnicos como PKT_OUTQUEDROP.">
+            <input type="checkbox" id="log-exact" style="accent-color: var(--blue);">
+            Exata
+        </label>
         <select class="form-input form-select" id="log-host">
             <option value="">Todos os hosts</option>
         </select>
@@ -37,6 +41,8 @@
         </select>
         <button class="btn btn-primary" onclick="searchLogs()">Buscar</button>
         <button class="btn btn-sm" onclick="exportCSV()" title="Exportar CSV" style="padding: 0.5rem 0.75rem;">📥 CSV</button>
+        <button class="btn btn-sm" onclick="exportTXT()" title="Exportar TXT" style="padding: 0.5rem 0.75rem;">📄 TXT</button>
+        <button class="btn btn-sm" onclick="openSendToAI()" title="Enviar logs filtrados para sessão de IA" style="padding: 0.5rem 0.75rem;">🤖 Enviar para IA</button>
     </div>
 </div>
 
@@ -96,5 +102,28 @@
     ['log-host', 'log-severity', 'log-period'].forEach(id => {
         document.getElementById(id).addEventListener('change', searchLogs);
     });
+
+    // Exact checkbox triggers search
+    document.getElementById('log-exact').addEventListener('change', searchLogs);
 </script>
+
+<!-- Modal: Enviar para sessão de IA -->
+<div class="modal-overlay" id="ai-session-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>🤖 Enviar Logs para IA</h3>
+            <button class="modal-close" onclick="closeAIModal()">✕</button>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: var(--space-md);">
+            Os logs filtrados atuais serão adicionados como contexto na sessão selecionada.
+        </p>
+        <div class="modal-session-list" id="ai-modal-sessions">
+            <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">Carregando sessões...</div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-sm" onclick="createAndSendToAI()">+ Nova Sessão</button>
+            <button class="btn btn-primary btn-sm" onclick="confirmSendToAI()" id="btn-confirm-send" disabled>Enviar</button>
+        </div>
+    </div>
+</div>
 {{end}}

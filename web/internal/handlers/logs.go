@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -49,6 +50,7 @@ func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
 	severity := strings.TrimSpace(q.Get("severity"))
 	search := strings.TrimSpace(q.Get("q"))
 	period := parsePeriod(q.Get("period"))
+	exact := q.Get("exact") == "true"
 	page, _ := strconv.Atoi(q.Get("page"))
 	perPage, _ := strconv.Atoi(q.Get("per_page"))
 
@@ -81,8 +83,14 @@ func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if search != "" {
-		where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
-		args = append(args, search)
+		if exact {
+			// ILIKE for exact substring match — better for technical keywords like PKT_OUTQUEDROP
+			where = append(where, "message ILIKE $"+strconv.Itoa(argIdx))
+			args = append(args, "%"+search+"%")
+		} else {
+			where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
+			args = append(args, search)
+		}
 		argIdx++
 	}
 
@@ -192,6 +200,7 @@ func HandleAPILogExport(w http.ResponseWriter, r *http.Request) {
 	severity := strings.TrimSpace(q.Get("severity"))
 	search := strings.TrimSpace(q.Get("q"))
 	period := parsePeriod(q.Get("period"))
+	exact := q.Get("exact") == "true"
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -214,8 +223,13 @@ func HandleAPILogExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if search != "" {
-		where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
-		args = append(args, search)
+		if exact {
+			where = append(where, "message ILIKE $"+strconv.Itoa(argIdx))
+			args = append(args, "%"+search+"%")
+		} else {
+			where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
+			args = append(args, search)
+		}
 		argIdx++
 	}
 
@@ -257,6 +271,74 @@ func HandleAPILogExport(w http.ResponseWriter, r *http.Request) {
 			escapeCsv(sev) + "," +
 			escapeCsv(app) + "," +
 			escapeCsv(msg) + "\r\n"
+		w.Write([]byte(line))
+	}
+}
+
+// HandleAPILogExportTXT streams filtered logs as plain text download.
+// GET /api/logs/export/txt?host=X&severity=error&q=text&period=1h&exact=true
+func HandleAPILogExportTXT(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	host := strings.TrimSpace(q.Get("host"))
+	severity := strings.TrimSpace(q.Get("severity"))
+	search := strings.TrimSpace(q.Get("q"))
+	period := parsePeriod(q.Get("period"))
+	exact := q.Get("exact") == "true"
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	// Build dynamic query
+	where := []string{"time > NOW() - $1::interval"}
+	args := []interface{}{period}
+	argIdx := 2
+
+	if host != "" {
+		where = append(where, "host = $"+strconv.Itoa(argIdx))
+		args = append(args, host)
+		argIdx++
+	}
+
+	if severity != "" {
+		where = append(where, "severity_name = $"+strconv.Itoa(argIdx))
+		args = append(args, severity)
+		argIdx++
+	}
+
+	if search != "" {
+		if exact {
+			where = append(where, "message ILIKE $"+strconv.Itoa(argIdx))
+			args = append(args, "%"+search+"%")
+		} else {
+			where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
+			args = append(args, search)
+		}
+		argIdx++
+	}
+
+	whereClause := strings.Join(where, " AND ")
+	query := "SELECT time, host, COALESCE(severity_name, 'unknown'), COALESCE(app_name, ''), message FROM logs WHERE " +
+		whereClause + " ORDER BY time DESC LIMIT 10000"
+
+	rows, err := db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		http.Error(w, "Query error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=logs_export.txt")
+
+	for rows.Next() {
+		var t time.Time
+		var h, sev, app, msg string
+		if err := rows.Scan(&t, &h, &sev, &app, &msg); err != nil {
+			continue
+		}
+
+		line := fmt.Sprintf("[%s] %s %s %s: %s\n",
+			t.Format("2006-01-02 15:04:05"), h, sev, app, msg)
 		w.Write([]byte(line))
 	}
 }

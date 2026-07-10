@@ -194,6 +194,7 @@ func handleAddContext(w http.ResponseWriter, r *http.Request, ctx context.Contex
 		Severity string `json:"severity"`
 		Period   string `json:"period"`
 		Search   string `json:"q"`
+		Exact    bool   `json:"exact"`
 	}
 	if err := parseJSON(r, &body); err != nil {
 		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
@@ -220,8 +221,13 @@ func handleAddContext(w http.ResponseWriter, r *http.Request, ctx context.Contex
 	}
 
 	if body.Search != "" {
-		where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
-		args = append(args, body.Search)
+		if body.Exact {
+			where = append(where, "message ILIKE $"+strconv.Itoa(argIdx))
+			args = append(args, "%"+body.Search+"%")
+		} else {
+			where = append(where, "to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+")")
+			args = append(args, body.Search)
+		}
 		argIdx++
 	}
 

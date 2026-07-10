@@ -549,11 +549,61 @@ td.mono {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.8rem;
     color: var(--text-primary);
-    max-width: 600px;
-    overflow-x: auto;
     white-space: nowrap;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-color) transparent;
+}
+
+.highlight {
+    background: rgba(245, 158, 11, 0.3);
+    color: var(--orange);
+    padding: 1px 2px;
+    border-radius: 2px;
+    font-weight: 600;
+}
+
+/* AI Session Picker Modal (from log page) */
+.modal-session-list {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-bottom: var(--space-md);
+    border: 1px solid var(--border-subtle);
+}
+
+.modal-session-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+}
+
+.modal-session-item:last-child {
+    border-bottom: none;
+}
+
+.modal-session-item:hover {
+    background: var(--bg-surface);
+}
+
+.modal-session-item.selected {
+    background: rgba(59, 130, 246, 0.15);
+    border-left: 3px solid var(--blue);
+}
+
+.modal-session-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.modal-actions {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: flex-end;
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-subtle);
 }
 
 .log-time {

@@ -96,6 +96,7 @@ func main() {
 	apiMux.HandleFunc("/api/logs/stats", handlers.HandleAPILogStats)
 	apiMux.HandleFunc("/api/logs/hosts", handlers.HandleAPILogHosts)
 	apiMux.HandleFunc("/api/logs/export", handlers.HandleAPILogExport)
+	apiMux.HandleFunc("/api/logs/export/txt", handlers.HandleAPILogExportTXT)
 	apiMux.HandleFunc("/api/alarms", handlers.HandleAPIAlarms)
 	apiMux.HandleFunc("/api/alarms/", handlers.HandleAPIAlarmResolve)
 	apiMux.HandleFunc("/api/ai/sessions", handlers.HandleAISessions)

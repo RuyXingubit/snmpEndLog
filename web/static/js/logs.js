@@ -1,6 +1,7 @@
 /**
  * nms — Log Viewer JavaScript
- * Handles log searching, filtering, pagination, and severity stats.
+ * Handles log searching, filtering, pagination, severity stats,
+ * keyword highlighting, AI session integration, and export.
  */
 
 'use strict';
@@ -67,6 +68,19 @@ function filterBySeverity(severity) {
 }
 
 // ============================================
+// Get current filter params (shared helper)
+// ============================================
+function getFilterParams() {
+    const q = document.getElementById('log-search').value;
+    const host = document.getElementById('log-host').value;
+    const severity = document.getElementById('log-severity').value;
+    const period = document.getElementById('log-period').value;
+    const exact = document.getElementById('log-exact').checked;
+
+    return { q, host, severity, period, exact };
+}
+
+// ============================================
 // Search Logs
 // ============================================
 async function searchLogs(resetPage = true) {
@@ -74,27 +88,30 @@ async function searchLogs(resetPage = true) {
         currentPage = 1;
     }
 
-    const q = document.getElementById('log-search').value;
-    const host = document.getElementById('log-host').value;
-    const severity = document.getElementById('log-severity').value;
-    const period = document.getElementById('log-period').value;
+    const filters = getFilterParams();
 
     const params = new URLSearchParams({
-        q, host, severity, period,
+        q: filters.q,
+        host: filters.host,
+        severity: filters.severity,
+        period: filters.period,
         page: currentPage,
         per_page: perPage,
     });
+    if (filters.exact) {
+        params.set('exact', 'true');
+    }
 
     const data = await api(`/api/logs?${params}`);
     if (!data) return;
 
-    renderLogs(data);
+    renderLogs(data, filters.q);
 }
 
 // ============================================
 // Render Log Table
 // ============================================
-function renderLogs(data) {
+function renderLogs(data, searchTerm) {
     const tbody = document.getElementById('log-table-body');
     const countEl = document.getElementById('log-count');
 
@@ -135,13 +152,16 @@ function renderLogs(data) {
         const msg = escapeHtml(log.message);
         const app = escapeHtml(log.app_name || '');
 
+        // Apply keyword highlight if searching
+        const highlightedMsg = searchTerm ? highlightText(msg, searchTerm) : msg;
+
         html += `
             <tr>
                 <td class="log-time">${time}</td>
                 <td>${escapeHtml(log.host)}</td>
                 <td><span class="badge ${cls}">${escapeHtml(log.severity)}</span></td>
                 <td class="text-muted">${app}</td>
-                <td class="log-message" title="${msg}">${msg}</td>
+                <td class="log-message" title="${msg}">${highlightedMsg}</td>
             </tr>
         `;
     });
@@ -154,6 +174,19 @@ function renderLogs(data) {
 
     document.getElementById('prev-page').disabled = data.page <= 1;
     document.getElementById('next-page').disabled = !data.has_more;
+}
+
+// ============================================
+// Keyword Highlight
+// ============================================
+function highlightText(escapedHtml, term) {
+    if (!term) return escapedHtml;
+
+    // Escape the term for use in regex (the term is plain text, not HTML)
+    const escapedTerm = escapeHtml(term).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedTerm})`, 'gi');
+
+    return escapedHtml.replace(regex, '<span class="highlight">$1</span>');
 }
 
 // ============================================
@@ -179,12 +212,136 @@ function escapeHtml(str) {
 // CSV Export
 // ============================================
 function exportCSV() {
-    const q = document.getElementById('log-search').value;
-    const host = document.getElementById('log-host').value;
-    const severity = document.getElementById('log-severity').value;
-    const period = document.getElementById('log-period').value;
-
-    const params = new URLSearchParams({ q, host, severity, period });
+    const filters = getFilterParams();
+    const params = new URLSearchParams({
+        q: filters.q,
+        host: filters.host,
+        severity: filters.severity,
+        period: filters.period,
+    });
+    if (filters.exact) {
+        params.set('exact', 'true');
+    }
     window.location.href = `/api/logs/export?${params}`;
 }
 
+// ============================================
+// TXT Export
+// ============================================
+function exportTXT() {
+    const filters = getFilterParams();
+    const params = new URLSearchParams({
+        q: filters.q,
+        host: filters.host,
+        severity: filters.severity,
+        period: filters.period,
+    });
+    if (filters.exact) {
+        params.set('exact', 'true');
+    }
+    window.location.href = `/api/logs/export/txt?${params}`;
+}
+
+// ============================================
+// Send to AI — Modal Management
+// ============================================
+let selectedAISessionId = null;
+
+async function openSendToAI() {
+    selectedAISessionId = null;
+    document.getElementById('btn-confirm-send').disabled = true;
+
+    const modal = document.getElementById('ai-session-modal');
+    modal.classList.add('active');
+
+    // Load sessions
+    const sessions = await api('/api/ai/sessions');
+    const container = document.getElementById('ai-modal-sessions');
+
+    if (!sessions || sessions.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+                Nenhuma sessão encontrada. Clique em "+ Nova Sessão" para criar uma.
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    sessions.forEach(s => {
+        const time = formatTimeShort(s.updated_at);
+        html += `
+            <div class="modal-session-item" data-id="${s.id}" onclick="selectAISession(${s.id}, this)">
+                <span>${escapeHtml(s.title)}</span>
+                <span class="modal-session-time">${time}</span>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function selectAISession(id, el) {
+    selectedAISessionId = id;
+    document.getElementById('btn-confirm-send').disabled = false;
+
+    // Update visual selection
+    document.querySelectorAll('#ai-modal-sessions .modal-session-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    el.classList.add('selected');
+}
+
+function closeAIModal() {
+    document.getElementById('ai-session-modal').classList.remove('active');
+    selectedAISessionId = null;
+}
+
+async function createAndSendToAI() {
+    // Create a new session and immediately send context to it
+    const result = await api('/api/ai/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Logs ' + new Date().toLocaleDateString('pt-BR') }),
+    });
+    if (!result) return;
+
+    selectedAISessionId = result.id;
+    await confirmSendToAI();
+}
+
+async function confirmSendToAI() {
+    if (!selectedAISessionId) return;
+
+    const btn = document.getElementById('btn-confirm-send');
+    btn.disabled = true;
+    btn.textContent = '⏳ Enviando...';
+
+    const filters = getFilterParams();
+
+    const body = {
+        host: filters.host,
+        severity: filters.severity,
+        period: filters.period,
+        q: filters.q,
+        exact: filters.exact,
+    };
+
+    const result = await api(`/api/ai/sessions/${selectedAISessionId}/context`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+
+    btn.textContent = 'Enviar';
+    btn.disabled = false;
+
+    if (result) {
+        closeAIModal();
+        if (result.count > 0) {
+            alert(`✅ ${result.count} logs adicionados ao contexto da sessão de IA.\n\nAcesse a página "Análise IA" para conversar sobre os logs.`);
+        } else {
+            alert('Nenhum log encontrado com os filtros atuais.');
+        }
+    }
+}
