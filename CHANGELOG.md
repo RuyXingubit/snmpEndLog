@@ -1,3 +1,10 @@
+## [1.7.2](https://github.com/RuyXingubit/snmpEndLog/compare/v1.7.1...v1.7.2) (2026-07-10)
+
+
+### Bug Fixes
+
+* **css:** tabela Logs Recentes no dashboard não trava mais ([e376e98](https://github.com/RuyXingubit/snmpEndLog/commit/e376e98debaef7d5fbcf04e730ab7f45124e0979))
+
 ## [1.7.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.7.0...v1.7.1) (2026-07-10)
 
 
