@@ -388,3 +388,41 @@ def get_interface_states(device_id: int) -> dict[int, int]:
         with conn.cursor() as cur:
             cur.execute("SELECT if_index, if_oper_status FROM interfaces WHERE device_id = %s", (device_id,))
             return {row[0]: row[1] for row in cur.fetchall() if row[1] is not None}
+
+
+# ---- Data Retention / Cleanup ----
+
+def cleanup_old_logs(days: int = 90) -> int:
+    """Delete log records older than the specified number of days.
+
+    Returns the number of deleted rows.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM logs WHERE time < NOW() - make_interval(days => %s)",
+                (days,),
+            )
+            deleted = cur.rowcount
+            return deleted
+
+
+def cleanup_old_metrics(days: int = 90) -> int:
+    """Delete metric records older than the specified number of days.
+
+    Cleans up all metric tables: traffic, system, ping, bgp.
+    Returns the total number of deleted rows.
+    """
+    total = 0
+    tables = ["metric_traffic", "metric_system", "metric_ping", "metric_bgp"]
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            for table in tables:
+                cur.execute(
+                    f"DELETE FROM {table} WHERE time < NOW() - make_interval(days => %s)",
+                    (days,),
+                )
+                total += cur.rowcount
+
+    return total
