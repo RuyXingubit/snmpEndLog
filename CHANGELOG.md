@@ -1,3 +1,10 @@
+## [1.8.2](https://github.com/RuyXingubit/snmpEndLog/compare/v1.8.1...v1.8.2) (2026-07-11)
+
+
+### Bug Fixes
+
+* **logs:** remover allowlist de IP do syslog no docker ([5a2bff2](https://github.com/RuyXingubit/snmpEndLog/commit/5a2bff2f0d5c0c0622540688f106da43ab0afa21))
+
 ## [1.8.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.8.0...v1.8.1) (2026-07-11)
 
 
