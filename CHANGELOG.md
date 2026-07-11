@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.8.0...v1.8.1) (2026-07-11)
+
+
+### Bug Fixes
+
+* **alarms:** registra template alarms.html no InitTemplates ([e6c3bba](https://github.com/RuyXingubit/snmpEndLog/commit/e6c3bbaf88bf87a115251e089018e940ba87ec97))
+
 # [1.8.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.7.2...v1.8.0) (2026-07-11)
 
 
