@@ -135,6 +135,7 @@ func InitTemplates(dir string) error {
 		"users.html",
 		"ai.html",
 		"status.html",
+		"alarms.html",
 	}
 
 	for _, page := range pages {
