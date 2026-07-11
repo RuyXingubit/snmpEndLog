@@ -64,6 +64,7 @@ func main() {
 	authMux.HandleFunc("/devices/", handlers.HandleDeviceDetail)
 	authMux.HandleFunc("/logs", handlers.HandleLogs)
 	authMux.HandleFunc("/ai", handlers.HandleAI)
+	authMux.HandleFunc("/alarms", handlers.HandleAlarms)
 
 	// Admin-only page routes (wrapped with RequireAdmin)
 	adminMux := http.NewServeMux()

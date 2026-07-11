@@ -130,17 +130,31 @@ function renderAlarmsTable(alarms) {
         return;
     }
 
-    tbody.innerHTML = alarms.map(a => `
+    tbody.innerHTML = alarms.map(a => {
+        let portInfo = a.entity_id;
+        if (a.entity_type === 'interface') {
+            const match = a.name.match(/Interface (.+) Down/);
+            if (match && match[1]) {
+                portInfo = `<strong>${match[1]}</strong>`;
+            } else {
+                portInfo = `<strong>${a.name}</strong>`;
+            }
+        } else if (a.entity_type === 'bgp_peer') {
+            portInfo = `<strong>${a.entity_id}</strong>`;
+        }
+
+        return `
         <tr>
             <td>${formatTimeShort(a.created_at)}</td>
-            <td>Dev ${a.device_id}</td>
+            <td><strong>${a.device_name || `Dev ${a.device_id}`}</strong><br><span style="font-size: 0.75rem; color: var(--text-secondary);">${portInfo}</span></td>
             <td><span class="badge badge-down">${a.severity.toUpperCase()}</span></td>
             <td>${a.message}</td>
             <td>
                 <button class="btn btn-sm" onclick="resolveAlarm(${a.id})">✅ Resolver</button>
             </td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
 }
 
 async function resolveAlarm(id) {

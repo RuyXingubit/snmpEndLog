@@ -23,40 +23,42 @@
                 Dashboard
             </a>
             <a href="#" class="nav-item" id="nav-alarms" style="display: none;" onclick="showAlarmsModal()">
-                <span class="nav-icon">🚨</span>
+                <span>🚨</span>
                 <span style="color: var(--status-down);">Alarmes (<span id="alarm-count">0</span>)</span>
             </a>
             <a href="/devices" class="nav-item{{if eq .Title "Equipamentos"}} active{{end}}">
                 <span class="nav-icon">🖥️</span>
                 Equipamentos
             </a>
-            <a href="/logs" class="nav-item{{if eq .Title "Logs"}} active{{end}}">
+            
+            <h3 class="nav-title mt-md">Sistema</h3>
+            <a href="/alarms" class="nav-item {{if eq .Title "Histórico de Alarmes"}}active{{end}}">
+                <span class="nav-icon">🚨</span>
+                Histórico de Alarmes
+            </a>
+            <a href="/logs" class="nav-item {{if eq .Title "Logs"}}active{{end}}">
                 <span class="nav-icon">📋</span>
                 Logs
             </a>
-            <a href="/ai" class="nav-item{{if eq .Title "Análise IA"}} active{{end}}">
+            <a href="/ai" class="nav-item {{if eq .Title "NOC AI"}}active{{end}}">
                 <span class="nav-icon">🤖</span>
-                Análise IA
+                NOC AI
             </a>
             {{if eq .Role "admin"}}
-            <div class="nav-section" style="margin-top: 1rem;">Administração</div>
-            <a href="/users" class="nav-item{{if eq .Title "Usuários"}} active{{end}}">
+            <a href="/users" class="nav-item {{if eq .Title "Usuários"}}active{{end}}">
                 <span class="nav-icon">👥</span>
                 Usuários
             </a>
-            <a href="/status" class="nav-item{{if eq .Title "Status"}} active{{end}}">
+            <a href="/status" class="nav-item {{if eq .Title "Status do Sistema"}}active{{end}}">
                 <span class="nav-icon">⚙️</span>
-                Status
+                Status do Sistema
             </a>
             {{end}}
         </nav>
-        <div class="sidebar-footer">
-            <div class="sidebar-user">
-                <div class="user-avatar">{{if .Username}}{{slice .Username 0 1}}{{else}}?{{end}}</div>
-                <div>
-                    <div style="font-weight: 500; color: var(--text-primary);">{{.Username}}</div>
-                    <div style="font-size: 0.7rem;">{{.Role}}</div>
-                </div>
+        <div class="user-profile">
+            <div class="user-avatar">{{if .Username}}{{slice .Username 0 1}}{{else}}?{{end}}</div>
+            <div class="user-info">
+                <span class="user-name">{{.Username}}</span>
                 <a href="/logout" style="margin-left: auto; font-size: 0.8rem;" title="Sair">🚪</a>
             </div>
         </div>
@@ -78,7 +80,7 @@
                 <thead>
                     <tr>
                         <th>Hora</th>
-                        <th>Device</th>
+                        <th>Equipamento</th>
                         <th>Severidade</th>
                         <th>Mensagem</th>
                         <th>Ações</th>
@@ -88,6 +90,9 @@
                     <!-- Preenchido via JS -->
                 </tbody>
             </table>
+            <div style="margin-top: 15px; text-align: center;">
+                <a href="/alarms" class="btn">Ver Histórico Completo</a>
+            </div>
         </div>
     </div>
 </div>

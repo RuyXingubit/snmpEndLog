@@ -1,0 +1,52 @@
+{{template "layout.html" .}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>🚨 Histórico de Alarmes</h2>
+    <div class="header-actions">
+        <span class="text-muted" style="font-size: 0.8rem;" id="alarm-count"></span>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-md">
+    <div class="log-filters">
+        <select class="form-input form-select" id="alarm-status" onchange="fetchAlarmsPage()">
+            <option value="all">Todos os Status</option>
+            <option value="active" selected>Ativos</option>
+            <option value="resolved">Resolvidos</option>
+        </select>
+        <button class="btn btn-primary" onclick="fetchAlarmsPage()">Atualizar</button>
+    </div>
+</div>
+
+<!-- Alarms Table -->
+<div class="card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Hora</th>
+                    <th>Equipamento</th>
+                    <th>Porta/Interface</th>
+                    <th>Severidade</th>
+                    <th>Status</th>
+                    <th>Mensagem</th>
+                    <th>Resolvido Em</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="alarms-page-table-body">
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <div class="loading-spinner"></div>
+                        <p class="mt-md">Carregando alarmes...</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="/static/js/alarms.js"></script>
+{{end}}
