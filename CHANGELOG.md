@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.7.2...v1.8.0) (2026-07-11)
+
+
+### Features
+
+* **alarms:** página de histórico e nome do equipamento ([3cad0cd](https://github.com/RuyXingubit/snmpEndLog/commit/3cad0cdea84360b19bbfcc2a87fe5d5c1435ac0f))
+
 ## [1.7.2](https://github.com/RuyXingubit/snmpEndLog/compare/v1.7.1...v1.7.2) (2026-07-10)
 
 
