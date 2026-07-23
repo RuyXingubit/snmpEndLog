@@ -1,3 +1,10 @@
+## [1.8.3](https://github.com/RuyXingubit/snmpEndLog/compare/v1.8.2...v1.8.3) (2026-07-23)
+
+
+### Bug Fixes
+
+* **logs:** remove NUL characters from incoming syslogs to prevent database crashes ([c3c0622](https://github.com/RuyXingubit/snmpEndLog/commit/c3c06226c8389cfc276de86fe54916a90e109463))
+
 ## [1.8.2](https://github.com/RuyXingubit/snmpEndLog/compare/v1.8.1...v1.8.2) (2026-07-11)
 
 
