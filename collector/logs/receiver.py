@@ -47,7 +47,7 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             return
 
         try:
-            raw = data.decode("utf-8", errors="replace").strip()
+            raw = data.decode("utf-8", errors="replace").replace("\x00", "").strip()
             if not raw:
                 return
             parsed = parse_syslog_message(raw, source_ip)
@@ -88,7 +88,7 @@ async def handle_tcp_client(
             if len(buffer) >= MAX_BUFFER_SIZE:
                 continue
 
-            raw = data.decode("utf-8", errors="replace").strip()
+            raw = data.decode("utf-8", errors="replace").replace("\x00", "").strip()
             if not raw:
                 continue
 
