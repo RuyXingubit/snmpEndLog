@@ -150,7 +150,7 @@ func HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch interfaces with latest traffic
 	irows, err := db.Pool.Query(ctx, `
-		SELECT i.if_index, i.if_descr, i.if_alias, i.if_speed,
+		SELECT i.if_index, i.if_descr, i.if_alias, COALESCE(NULLIF(i.if_hc_speed, 0) * 1000000, i.if_speed),
 		       COALESCE(i.if_admin_status, 1), COALESCE(i.if_oper_status, 1),
 		       mt.in_bps, mt.out_bps, mt.in_errors, mt.out_errors,
                i.vlan_type, i.native_vlan
