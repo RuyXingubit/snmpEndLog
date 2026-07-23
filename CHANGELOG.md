@@ -1,3 +1,10 @@
+## [1.8.4](https://github.com/RuyXingubit/snmpEndLog/compare/v1.8.3...v1.8.4) (2026-07-23)
+
+
+### Bug Fixes
+
+* **web:** use 64-bit if_hc_speed to correctly detect 10G+ interfaces ([620ecf7](https://github.com/RuyXingubit/snmpEndLog/commit/620ecf76df673ac72daedd2a60aa369ca2087a9d))
+
 ## [1.8.3](https://github.com/RuyXingubit/snmpEndLog/compare/v1.8.2...v1.8.3) (2026-07-23)
 
 
