@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.8.4...v1.9.0) (2026-07-31)
+
+
+### Features
+
+* webhook link quality active monitoring with mikrotik script generation and charts ([42f3b31](https://github.com/RuyXingubit/snmpEndLog/commit/42f3b317bdc761be780838830aed692e28da003f))
+
 ## [1.8.4](https://github.com/RuyXingubit/snmpEndLog/compare/v1.8.3...v1.8.4) (2026-07-23)
 
 
