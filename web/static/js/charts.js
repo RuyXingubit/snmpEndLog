@@ -212,6 +212,29 @@ async function initDeviceCharts(deviceId, period) {
             },
         ]);
     }
+
+    // Webhook Ping chart
+    const hookPingData = await api(`/api/metrics/webhook-ping?device_id=${deviceId}&period=${period}`);
+    if (hookPingData && hookPingData.packet_loss && hookPingData.packet_loss.length > 0) {
+        const hCard = document.getElementById('webhook-ping-chart-card');
+        if (hCard) hCard.style.display = 'block';
+
+        const labels = (hookPingData.packet_loss || []).map(p => p.time);
+        createLineChart('chart-webhook-ping', labels, [
+            {
+                label: 'Packet Loss %',
+                data: (hookPingData.packet_loss || []).map(p => p.value),
+                borderColor: '#EF4444', // Red
+                backgroundColor: 'transparent',
+                fill: false,
+            },
+        ], {
+            yFormat: v => v + '%',
+        });
+    } else {
+        const hCard = document.getElementById('webhook-ping-chart-card');
+        if (hCard) hCard.style.display = 'none';
+    }
 }
 
 // ============================================

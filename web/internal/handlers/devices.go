@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"nms-web/internal/db"
 )
 
@@ -34,6 +36,7 @@ type Device struct {
 	SnmpEnabled     bool
 	LastPolledAt    *time.Time
 	LastSeenAt      *time.Time
+	WebhookToken    *string
 }
 
 // InterfaceInfo represents a device interface for templates.
@@ -74,7 +77,7 @@ func HandleDevices(w http.ResponseWriter, r *http.Request) {
 		SELECT id, hostname, host(ip_address), snmp_version, community, status,
 		       vendor, sys_name, sys_descr, sys_location, sys_uptime,
 		       board_name, serial_number, firmware_version, voltage,
-		       poll_interval, ping_enabled, snmp_enabled, last_polled_at, last_seen_at
+		       poll_interval, ping_enabled, snmp_enabled, last_polled_at, last_seen_at, webhook_token
 		FROM devices
 		ORDER BY id DESC
 	`)
@@ -91,7 +94,7 @@ func HandleDevices(w http.ResponseWriter, r *http.Request) {
 			&d.ID, &d.Hostname, &d.IPAddress, &d.SNMPVersion, &d.Community, &d.Status,
 			&d.Vendor, &d.SysName, &d.SysDescr, &d.SysLocation, &d.SysUptime,
 			&d.BoardName, &d.SerialNumber, &d.FirmwareVersion, &d.Voltage,
-			&d.PollInterval, &d.PingEnabled, &d.SnmpEnabled, &d.LastPolledAt, &d.LastSeenAt,
+			&d.PollInterval, &d.PingEnabled, &d.SnmpEnabled, &d.LastPolledAt, &d.LastSeenAt, &d.WebhookToken,
 		)
 		if err != nil {
 			continue
@@ -135,13 +138,13 @@ func HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
 		SELECT id, hostname, host(ip_address), snmp_version, community, status,
 		       vendor, sys_name, sys_descr, sys_location, sys_uptime,
 		       board_name, serial_number, firmware_version, voltage,
-		       poll_interval, ping_enabled, snmp_enabled, last_polled_at, last_seen_at
+		       poll_interval, ping_enabled, snmp_enabled, last_polled_at, last_seen_at, webhook_token
 		FROM devices WHERE id = $1
 	`, deviceID).Scan(
 		&d.ID, &d.Hostname, &d.IPAddress, &d.SNMPVersion, &d.Community, &d.Status,
 		&d.Vendor, &d.SysName, &d.SysDescr, &d.SysLocation, &d.SysUptime,
 		&d.BoardName, &d.SerialNumber, &d.FirmwareVersion, &d.Voltage,
-		&d.PollInterval, &d.PingEnabled, &d.SnmpEnabled, &d.LastPolledAt, &d.LastSeenAt,
+		&d.PollInterval, &d.PingEnabled, &d.SnmpEnabled, &d.LastPolledAt, &d.LastSeenAt, &d.WebhookToken,
 	)
 	if err != nil {
 		http.Error(w, "Device not found", http.StatusNotFound)
@@ -256,11 +259,16 @@ func HandleDeviceAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Gerar UUIDv7 para Webhook
+	webhookToken, _ := uuid.NewV7()
+	tokenStr := webhookToken.String()
+
 	if snmpVersion == "v2c" {
+
 		_, err := db.Pool.Exec(ctx, `
-			INSERT INTO devices (hostname, ip_address, snmp_version, community, poll_interval, snmp_enabled)
-			VALUES ($1, $2::inet, $3, $4, $5, $6)
-		`, hostname, ipAddress, snmpVersion, community, pollInterval, snmpEnabled)
+			INSERT INTO devices (hostname, ip_address, snmp_version, community, poll_interval, snmp_enabled, webhook_token)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`, hostname, ipAddress, snmpVersion, community, pollInterval, snmpEnabled, tokenStr)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Erro ao adicionar: %v", err), http.StatusBadRequest)
 			return
@@ -279,11 +287,11 @@ func HandleDeviceAdd(w http.ResponseWriter, r *http.Request) {
 				(hostname, ip_address, snmp_version, snmpv3_user,
 				 snmpv3_auth_proto, snmpv3_auth_pass,
 				 snmpv3_priv_proto, snmpv3_priv_pass, snmpv3_sec_level,
-				 poll_interval, snmp_enabled)
-			VALUES ($1, $2::inet, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+				 poll_interval, snmp_enabled, webhook_token)
+			VALUES ($1, $2::inet, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		`, hostname, ipAddress, snmpVersion, v3User,
 			v3AuthProto, v3AuthPass, v3PrivProto, v3PrivPass, v3SecLevel,
-			pollInterval, snmpEnabled)
+			pollInterval, snmpEnabled, tokenStr)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Erro ao adicionar: %v", err), http.StatusBadRequest)
 			return

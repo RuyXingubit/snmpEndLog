@@ -166,6 +166,48 @@ func HandleAPIPing(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, data)
 }
 
+// HandleAPIWebhookPing returns webhook link quality metrics as JSON.
+// GET /api/metrics/webhook-ping?device_id=1&period=1h
+func HandleAPIWebhookPing(w http.ResponseWriter, r *http.Request) {
+	deviceID, _ := strconv.Atoi(r.URL.Query().Get("device_id"))
+	tf := parseTimeFilter(r)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	var where []string
+	var args []interface{}
+	where = append(where, "device_id = $1")
+	args = append(args, deviceID)
+	argIdx := 2
+	where, args, _ = tf.AppendTimeWhere(where, args, argIdx)
+
+	// In Timescale, time_bucket could be used, but for simplicity we fetch raw points or small buckets.
+	// We'll fetch raw points for the chart.
+	query := "SELECT time, COALESCE(rtt_avg, 0), COALESCE(packet_loss, 0) FROM metric_link_quality WHERE " +
+		joinWhere(where) + " ORDER BY time ASC"
+
+	rows, err := db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	data := PingData{}
+	for rows.Next() {
+		var t time.Time
+		var rtt, loss float64
+		if err := rows.Scan(&t, &rtt, &loss); err != nil {
+			continue
+		}
+		data.RTT = append(data.RTT, MetricPoint{Time: t, Value: rtt})
+		data.PacketLoss = append(data.PacketLoss, MetricPoint{Time: t, Value: loss})
+	}
+
+	jsonResponse(w, http.StatusOK, data)
+}
+
 // BGPData represents BGP metrics for a chart.
 type BGPData struct {
 	State  []MetricPoint `json:"state"`

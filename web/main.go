@@ -92,6 +92,7 @@ func main() {
 	apiMux.HandleFunc("/api/metrics/traffic", handlers.HandleAPITraffic)
 	apiMux.HandleFunc("/api/metrics/system", handlers.HandleAPISystem)
 	apiMux.HandleFunc("/api/metrics/ping", handlers.HandleAPIPing)
+	apiMux.HandleFunc("/api/metrics/webhook-ping", handlers.HandleAPIWebhookPing)
 	apiMux.HandleFunc("/api/metrics/bgp", handlers.HandleAPIBGP)
 	apiMux.HandleFunc("/api/logs", handlers.HandleAPILogs)
 	apiMux.HandleFunc("/api/logs/stats", handlers.HandleAPILogStats)
@@ -105,6 +106,9 @@ func main() {
 	apiMux.HandleFunc("/api/status", handlers.HandleAPIStatus)
 
 	mux.Handle("/api/", middleware.RequireAPI(apiMux))
+
+	// Webhooks (Public but authenticated via Bearer)
+	mux.HandleFunc("/api/webhooks/link-quality", handlers.HandleWebhookLinkQuality)
 
 	// Wrap with logging middleware
 	handler := middleware.Logging(mux)
