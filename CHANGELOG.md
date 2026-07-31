@@ -1,3 +1,10 @@
+## [1.10.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.10.0...v1.10.1) (2026-07-31)
+
+
+### Bug Fixes
+
+* add NMS URL input to fix Mikrotik DNS resolving error ([bd46270](https://github.com/RuyXingubit/snmpEndLog/commit/bd46270504cdf5ae8b3be8ce2cdeb0edd8e1778d))
+
 # [1.10.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.9.0...v1.10.0) (2026-07-31)
 
 
