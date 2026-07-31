@@ -82,6 +82,44 @@
     </div>
 </form>
 
+<!-- Webhook Integration -->
+<div class="card mb-md">
+    <div class="card-header">
+        <span class="card-title">🔗 Integração de Monitoramento (Webhook)</span>
+    </div>
+    <div style="padding: 1.25rem;">
+        {{if .Device.WebhookToken}}
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Configure o Mikrotik para enviar os testes de ping. O script criará as rotinas automáticas.</p>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: flex-end;">
+            <label>
+                <span class="form-label">Alvo (IP ou Host)</span>
+                <input type="text" id="webhook-target-ip" class="form-input" value="8.8.8.8" placeholder="Ex: 8.8.8.8" style="width: 200px;">
+            </label>
+            <label>
+                <span class="form-label">IP de Origem (Opcional)</span>
+                <input type="text" id="webhook-src-address" class="form-input" placeholder="Ex: 177.53.139.255" style="width: 200px;">
+            </label>
+            <button class="btn btn-primary" onclick="generateWebhookScript()">Gerar Script Mikrotik</button>
+        </div>
+        <div id="webhook-script-container" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent);">Copie e cole no Terminal do Mikrotik:</span>
+                <button class="btn btn-sm" onclick="copyWebhookScript()">Copiar</button>
+            </div>
+            <pre id="webhook-script-code" class="mono" style="background: var(--surface); padding: 1rem; border-radius: 4px; font-size: 0.85rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; border: 1px solid var(--border);"></pre>
+        </div>
+        {{else}}
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 1rem;">
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Este equipamento ainda não possui um Token seguro gerado para receber dados externos via webhook.</p>
+            <form method="POST" action="/devices/generate-token">
+                <input type="hidden" name="device_id" value="{{.Device.ID}}">
+                <button type="submit" class="btn btn-primary">Gerar Token Agora</button>
+            </form>
+        </div>
+        {{end}}
+    </div>
+</div>
+
     <!-- Ações -->
     <div style="display: flex; gap: 0.75rem; align-items: center;">
         <button type="submit" form="edit-form" class="btn">💾 Salvar Configurações</button>
@@ -132,5 +170,47 @@
 
     // Call on load to set initial state
     document.addEventListener('DOMContentLoaded', toggleSNMPFields);
+
+    {{if .Device.WebhookToken}}
+    const webhookToken = "{{deref .Device.WebhookToken}}";
+    
+    function generateWebhookScript() {
+        const targetIp = document.getElementById('webhook-target-ip').value || '8.8.8.8';
+        const srcAddr = document.getElementById('webhook-src-address').value.trim();
+        
+        let pingCmd = `[/ping $target count=$count`;
+        if (srcAddr) {
+            pingCmd += ` src-address="${srcAddr}"`;
+        }
+        pingCmd += `]`;
+
+        const scriptName = "nms_link_quality";
+        const hostUrl = window.location.protocol + '//' + window.location.host;
+        
+        const routerOsCmd = `/system script remove [find name="${scriptName}"]
+/system script add name="${scriptName}" source={
+:local target "${targetIp}"
+:local count 10
+:local token "${webhookToken}"
+:local pingResult ${pingCmd}
+:local packetLoss (100 - (($pingResult * 100) / $count))
+:local json "{\\"target_ip\\":\\"$target\\", \\"packet_loss\\":$packetLoss}"
+/tool fetch http-method=post url="${hostUrl}/api/webhooks/link-quality" http-header-field="Authorization: Bearer $token,Content-Type: application/json" http-data=$json keep-result=no
+}
+/system scheduler remove [find name="${scriptName}_sched"]
+/system scheduler add name="${scriptName}_sched" interval=1m on-event="${scriptName}"
+/system script run "${scriptName}"`;
+
+        document.getElementById('webhook-script-code').textContent = routerOsCmd;
+        document.getElementById('webhook-script-container').style.display = 'block';
+    }
+
+    function copyWebhookScript() {
+        const text = document.getElementById('webhook-script-code').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Script copiado para a área de transferência!');
+        });
+    }
+    {{end}}
 </script>
 {{end}}

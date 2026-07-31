@@ -396,13 +396,13 @@ func HandleDeviceEditPage(w http.ResponseWriter, r *http.Request) {
 		SELECT id, hostname, host(ip_address), snmp_version, community, status,
 		       vendor, sys_name, sys_descr, sys_location, sys_uptime,
 		       board_name, serial_number, firmware_version, voltage,
-		       poll_interval, ping_enabled, snmp_enabled, last_polled_at, last_seen_at
+		       poll_interval, ping_enabled, snmp_enabled, last_polled_at, last_seen_at, webhook_token
 		FROM devices WHERE id = $1
 	`, deviceID).Scan(
 		&d.ID, &d.Hostname, &d.IPAddress, &d.SNMPVersion, &d.Community, &d.Status,
 		&d.Vendor, &d.SysName, &d.SysDescr, &d.SysLocation, &d.SysUptime,
 		&d.BoardName, &d.SerialNumber, &d.FirmwareVersion, &d.Voltage,
-		&d.PollInterval, &d.PingEnabled, &d.SnmpEnabled, &d.LastPolledAt, &d.LastSeenAt,
+		&d.PollInterval, &d.PingEnabled, &d.SnmpEnabled, &d.LastPolledAt, &d.LastSeenAt, &d.WebhookToken,
 	)
 	if err != nil {
 		http.Error(w, "Device not found", http.StatusNotFound)
@@ -413,4 +413,33 @@ func HandleDeviceEditPage(w http.ResponseWriter, r *http.Request) {
 		"Title":  d.Hostname + " — Configurações",
 		"Device": d,
 	}, r)
+}
+
+// HandleDeviceGenerateToken generates a new webhook token for an existing device (POST).
+func HandleDeviceGenerateToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	deviceID, err := strconv.Atoi(r.FormValue("device_id"))
+	if err != nil {
+		http.Error(w, "Invalid device ID", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	// Gerar UUIDv7 para Webhook
+	webhookToken, _ := uuid.NewV7()
+	tokenStr := webhookToken.String()
+
+	_, err = db.Pool.Exec(ctx, `UPDATE devices SET webhook_token = $1 WHERE id = $2`, tokenStr, deviceID)
+	if err != nil {
+		http.Error(w, "Error generating token", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/devices/%d/edit", deviceID), http.StatusSeeOther)
 }
