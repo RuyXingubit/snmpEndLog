@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.9.0...v1.10.0) (2026-07-31)
+
+
+### Features
+
+* move webhook integration UI to device edit page ([de7cbac](https://github.com/RuyXingubit/snmpEndLog/commit/de7cbacc7bf53425305af29e4be303572806a8c8))
+
 # [1.9.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.8.4...v1.9.0) (2026-07-31)
 
 
