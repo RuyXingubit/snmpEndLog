@@ -93,11 +93,15 @@
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: flex-end;">
             <label>
                 <span class="form-label">Alvo (IP ou Host)</span>
-                <input type="text" id="webhook-target-ip" class="form-input" value="8.8.8.8" placeholder="Ex: 8.8.8.8" style="width: 200px;">
+                <input type="text" id="webhook-target-ip" class="form-input" value="8.8.8.8" placeholder="Ex: 8.8.8.8" style="width: 150px;">
             </label>
             <label>
                 <span class="form-label">IP de Origem (Opcional)</span>
-                <input type="text" id="webhook-src-address" class="form-input" placeholder="Ex: 177.53.139.255" style="width: 200px;">
+                <input type="text" id="webhook-src-address" class="form-input" placeholder="Ex: 177.53.139.255" style="width: 180px;">
+            </label>
+            <label>
+                <span class="form-label">Endereço do NMS</span>
+                <input type="text" id="webhook-host-url" class="form-input" style="width: 220px;" placeholder="Ex: http://192.168.1.100:8080">
             </label>
             <button class="btn btn-primary" onclick="generateWebhookScript()">Gerar Script Mikrotik</button>
         </div>
@@ -169,7 +173,13 @@
     }
 
     // Call on load to set initial state
-    document.addEventListener('DOMContentLoaded', toggleSNMPFields);
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleSNMPFields();
+        const urlInput = document.getElementById('webhook-host-url');
+        if (urlInput && !urlInput.value) {
+            urlInput.value = window.location.protocol + '//' + window.location.host;
+        }
+    });
 
     {{if .Device.WebhookToken}}
     const webhookToken = "{{deref .Device.WebhookToken}}";
@@ -185,7 +195,7 @@
         pingCmd += `]`;
 
         const scriptName = "nms_link_quality";
-        const hostUrl = window.location.protocol + '//' + window.location.host;
+        const hostUrl = document.getElementById('webhook-host-url').value.trim() || (window.location.protocol + '//' + window.location.host);
         
         const routerOsCmd = `/system script remove [find name="${scriptName}"]
 /system script add name="${scriptName}" source={
