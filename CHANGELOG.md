@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.10.1...v1.11.0) (2026-07-31)
+
+
+### Features
+
+* add src-address to Mikrotik fetch command for DNS/routing resolution ([400a1ed](https://github.com/RuyXingubit/snmpEndLog/commit/400a1edd5226f4b1afdbd21cf411f411411b39d4))
+
 ## [1.10.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.10.0...v1.10.1) (2026-07-31)
 
 
