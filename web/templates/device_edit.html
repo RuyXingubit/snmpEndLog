@@ -197,6 +197,11 @@
         const scriptName = "nms_link_quality";
         const hostUrl = document.getElementById('webhook-host-url').value.trim() || (window.location.protocol + '//' + window.location.host);
         
+        let fetchCmd = `/tool fetch http-method=post url="${hostUrl}/api/webhooks/link-quality" http-header-field="Authorization: Bearer $token,Content-Type: application/json" http-data=$json keep-result=no`;
+        if (srcAddr) {
+            fetchCmd += ` src-address="${srcAddr}"`;
+        }
+        
         const routerOsCmd = `/system script remove [find name="${scriptName}"]
 /system script add name="${scriptName}" source={
 :local target "${targetIp}"
@@ -205,7 +210,7 @@
 :local pingResult ${pingCmd}
 :local packetLoss (100 - (($pingResult * 100) / $count))
 :local json "{\\"target_ip\\":\\"$target\\", \\"packet_loss\\":$packetLoss}"
-/tool fetch http-method=post url="${hostUrl}/api/webhooks/link-quality" http-header-field="Authorization: Bearer $token,Content-Type: application/json" http-data=$json keep-result=no
+${fetchCmd}
 }
 /system scheduler remove [find name="${scriptName}_sched"]
 /system scheduler add name="${scriptName}_sched" interval=1m on-event="${scriptName}"
