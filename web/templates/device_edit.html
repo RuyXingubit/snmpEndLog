@@ -103,7 +103,18 @@
                 <span class="form-label">Endereço do NMS</span>
                 <input type="text" id="webhook-host-url" class="form-input" style="width: 220px;" placeholder="Ex: http://192.168.1.100:8080">
             </label>
-            <button class="btn btn-primary" onclick="generateWebhookScript()">Gerar Script Mikrotik</button>
+        </div>
+        
+        <div style="background: var(--surface-2); padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; border-left: 3px solid var(--primary);">
+            <strong style="color: var(--text);">Roteadores de Borda/BGP isolados (Sem DNS):</strong><br>
+            <span style="color: var(--text-muted);">Se o Mikrotik não consegue resolver o domínio do NMS por falta de DNS global, informe o IP público do servidor abaixo. O script criará uma regra estática local (`/ip dns static`) para forçar a resolução sem depender da internet.</span>
+            <div style="margin-top: 0.5rem; display: flex; align-items: flex-end; gap: 1rem;">
+                <label>
+                    <span class="form-label">IP Público do NMS (Opcional)</span>
+                    <input type="text" id="webhook-nms-ip" class="form-input" placeholder="Ex: 143.208.136.39" style="width: 200px;">
+                </label>
+                <button class="btn btn-primary" onclick="generateWebhookScript()">Gerar Script Mikrotik</button>
+            </div>
         </div>
         <div id="webhook-script-container" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
@@ -196,13 +207,27 @@
 
         const scriptName = "nms_link_quality";
         const hostUrl = document.getElementById('webhook-host-url').value.trim() || (window.location.protocol + '//' + window.location.host);
+        const nmsIp = document.getElementById('webhook-nms-ip').value.trim();
         
         let fetchCmd = `/tool fetch http-method=post url="${hostUrl}/api/webhooks/link-quality" http-header-field="Authorization: Bearer $token,Content-Type: application/json" http-data=$json keep-result=no`;
         if (srcAddr) {
             fetchCmd += ` src-address="${srcAddr}"`;
         }
         
-        const routerOsCmd = `/system script remove [find name="${scriptName}"]
+        let dnsCmd = "";
+        if (nmsIp) {
+            let domain = "";
+            try {
+                domain = new URL(hostUrl).hostname;
+            } catch (e) {
+                domain = hostUrl.replace('http://', '').replace('https://', '').split(/[/?#]/)[0].split(':')[0];
+            }
+            if (domain && domain !== nmsIp) {
+                dnsCmd = `/ip dns static remove [find name="${domain}"]\n/ip dns static add name="${domain}" address="${nmsIp}"\n`;
+            }
+        }
+        
+        const routerOsCmd = `${dnsCmd}/system script remove [find name="${scriptName}"]
 /system script add name="${scriptName}" source={
 :local target "${targetIp}"
 :local count 10
