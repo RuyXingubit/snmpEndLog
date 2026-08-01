@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.11.0...v1.12.0) (2026-08-01)
+
+
+### Features
+
+* add explicit static DNS IP field with explanation for BGP routers ([937218c](https://github.com/RuyXingubit/snmpEndLog/commit/937218c035b081da2a1fef1869dd035e96bed853))
+
 # [1.11.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.10.1...v1.11.0) (2026-07-31)
 
 
