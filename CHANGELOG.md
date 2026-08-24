@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.13.0...v1.14.0) (2026-08-24)
+
+
+### Features
+
+* **web:** permitir editar perfil/grupo de usuarios em /users ([6267ff2](https://github.com/RuyXingubit/snmpEndLog/commit/6267ff21a51f78488879d38c87e80e24cb1fc018))
+
 # [1.13.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.12.0...v1.13.0) (2026-08-24)
 
 
