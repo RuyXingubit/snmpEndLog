@@ -74,6 +74,7 @@ func main() {
 	adminMux.HandleFunc("/devices/generate-token", handlers.HandleDeviceGenerateToken)
 	adminMux.HandleFunc("/users", handlers.HandleUsers)
 	adminMux.HandleFunc("/users/create", handlers.HandleUserCreate)
+	adminMux.HandleFunc("/users/edit", handlers.HandleUserEdit)
 	adminMux.HandleFunc("/users/delete", handlers.HandleUserDelete)
 	adminMux.HandleFunc("/status", handlers.HandleStatus)
 
@@ -84,6 +85,7 @@ func main() {
 	authMux.Handle("/users", middleware.RequireAdmin(adminMux))
 	authMux.Handle("/users/", middleware.RequireAdmin(adminMux))
 	authMux.Handle("/users/create", middleware.RequireAdmin(adminMux))
+	authMux.Handle("/users/edit", middleware.RequireAdmin(adminMux))
 	authMux.Handle("/users/delete", middleware.RequireAdmin(adminMux))
 	authMux.Handle("/status", middleware.RequireAdmin(adminMux))
 

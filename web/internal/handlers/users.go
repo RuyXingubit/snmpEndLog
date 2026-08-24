@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,23 @@ type UserEntry struct {
 	Username  string
 	Role      string
 	CreatedAt time.Time
+}
+
+// ValidateUserEdit validates the inputs for editing a user.
+func ValidateUserEdit(currentUserID, targetUserID int, role, password string) error {
+	if targetUserID <= 0 {
+		return errors.New("ID de usuário inválido.")
+	}
+	if role != "admin" && role != "viewer" {
+		return errors.New("Role inválida.")
+	}
+	if currentUserID == targetUserID && role != "admin" {
+		return errors.New("Você não pode alterar seu próprio perfil para viewer.")
+	}
+	if password != "" && len(password) < 8 {
+		return errors.New("A senha deve ter no mínimo 8 caracteres.")
+	}
+	return nil
 }
 
 // HandleUsers renders the user management page (admin-only).
@@ -147,6 +165,82 @@ func HandleUserCreate(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Admin %q created user %q with role %q", claims.Username, username, role)
 	http.Redirect(w, r, "/users?msg=Usuário+"+username+"+criado+com+sucesso!", http.StatusSeeOther)
+}
+
+// HandleUserEdit updates a user's role and optionally password (admin-only).
+func HandleUserEdit(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r)
+	if claims == nil || claims.Role != "admin" {
+		http.Error(w, "Acesso negado", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+
+	userIDStr := r.FormValue("user_id")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		http.Redirect(w, r, "/users?err=ID+de+usuário+inválido.", http.StatusSeeOther)
+		return
+	}
+
+	role := strings.TrimSpace(r.FormValue("role"))
+	password := r.FormValue("password")
+
+	if err := ValidateUserEdit(claims.UserID, userID, role, password); err != nil {
+		http.Redirect(w, r, "/users?err="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	// Check if user exists
+	var targetUsername string
+	err = db.Pool.QueryRow(ctx, `SELECT username FROM users WHERE id = $1`, userID).Scan(&targetUsername)
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.Redirect(w, r, "/users?err=Usuário+não+encontrado.", http.StatusSeeOther)
+		return
+	}
+	if err != nil {
+		log.Printf("Error querying user for edit: %v", err)
+		http.Redirect(w, r, "/users?err=Erro+interno.", http.StatusSeeOther)
+		return
+	}
+
+	if password != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+		if err != nil {
+			log.Printf("Error hashing password: %v", err)
+			http.Redirect(w, r, "/users?err=Erro+interno+ao+atualizar+senha.", http.StatusSeeOther)
+			return
+		}
+		_, err = db.Pool.Exec(ctx,
+			`UPDATE users SET role = $1, password_hash = $2, updated_at = NOW() WHERE id = $3`,
+			role, string(hash), userID,
+		)
+		if err != nil {
+			log.Printf("Error updating user with password: %v", err)
+			http.Redirect(w, r, "/users?err=Erro+ao+atualizar+usuário.", http.StatusSeeOther)
+			return
+		}
+	} else {
+		_, err = db.Pool.Exec(ctx,
+			`UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2`,
+			role, userID,
+		)
+		if err != nil {
+			log.Printf("Error updating user role: %v", err)
+			http.Redirect(w, r, "/users?err=Erro+ao+atualizar+usuário.", http.StatusSeeOther)
+			return
+		}
+	}
+
+	log.Printf("Admin %q updated user %q (ID: %d) with role %q", claims.Username, targetUsername, userID, role)
+	http.Redirect(w, r, "/users?msg="+url.QueryEscape("Usuário "+targetUsername+" atualizado com sucesso!"), http.StatusSeeOther)
 }
 
 // HandleUserDelete removes a user (admin-only, cannot delete self).
