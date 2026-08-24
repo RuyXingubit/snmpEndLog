@@ -53,11 +53,13 @@
                     <td class="log-time">{{formatTime .CreatedAt}}</td>
                     <td>
                         <button type="button" class="btn btn-sm" style="margin-right: 6px;"
-                                onclick="openEditUserModal({{.ID}}, '{{.Username}}', '{{.Role}}')">
+                                data-id="{{.ID}}" data-username="{{.Username}}" data-role="{{.Role}}"
+                                onclick="openEditUserModal(this)">
                             ✏️ Editar
                         </button>
                         <button type="button" class="btn btn-sm btn-danger"
-                                onclick="openDeleteUserModal({{.ID}}, '{{.Username}}')"
+                                data-id="{{.ID}}" data-username="{{.Username}}"
+                                onclick="openDeleteUserModal(this)"
                                 {{if eq .Username $.Username}}disabled title="Não é possível remover sua própria conta"{{end}}>
                             🗑️ Remover
                         </button>
@@ -162,17 +164,17 @@
 </div>
 
 <script>
-function openEditUserModal(id, username, role) {
-    document.getElementById('edit-user-id').value = id;
-    document.getElementById('edit-username').value = username;
-    document.getElementById('edit-role').value = role;
+function openEditUserModal(btn) {
+    document.getElementById('edit-user-id').value = btn.dataset.id;
+    document.getElementById('edit-username').value = btn.dataset.username;
+    document.getElementById('edit-role').value = btn.dataset.role;
     document.getElementById('edit-password').value = '';
     document.getElementById('edit-user-modal').classList.add('active');
 }
 
-function openDeleteUserModal(id, username) {
-    document.getElementById('delete-user-name').textContent = username;
-    document.getElementById('delete-user-id').value = id;
+function openDeleteUserModal(btn) {
+    document.getElementById('delete-user-name').textContent = btn.dataset.username;
+    document.getElementById('delete-user-id').value = btn.dataset.id;
     document.getElementById('delete-user-modal').classList.add('active');
 }
 </script>
