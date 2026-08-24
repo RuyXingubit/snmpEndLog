@@ -15,6 +15,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+cookie.txt
 
 # IDE
 .vscode/
@@ -32,6 +33,7 @@ docker-compose.override.yml
 
 # Go
 web/web
+web/nms-web
 web/tmp/
 
 # Logs

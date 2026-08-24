@@ -47,18 +47,40 @@ function formatBps(bps) {
 }
 
 function formatTime(isoStr) {
+    if (!isoStr) return '-';
     const d = new Date(isoStr);
     return d.toLocaleString('pt-BR', {
-        day: '2-digit', month: '2-digit',
+        day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit', second: '2-digit',
     });
 }
 
+function formatDateTime(isoStr) {
+    if (!isoStr) return '-';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return String(isoStr);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+}
+
 function formatTimeShort(isoStr) {
+    if (!isoStr) return '-';
     const d = new Date(isoStr);
     return d.toLocaleTimeString('pt-BR', {
         hour: '2-digit', minute: '2-digit',
     });
+}
+
+function escapeHtml(str) {
+    if (str == null) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
 }
 
 // ============================================
@@ -145,10 +167,10 @@ function renderAlarmsTable(alarms) {
 
         return `
         <tr>
-            <td>${formatTimeShort(a.created_at)}</td>
-            <td><strong>${a.device_name || `Dev ${a.device_id}`}</strong><br><span style="font-size: 0.75rem; color: var(--text-secondary);">${portInfo}</span></td>
-            <td><span class="badge badge-down">${a.severity.toUpperCase()}</span></td>
-            <td>${a.message}</td>
+            <td class="log-time">${formatDateTime(a.created_at)}</td>
+            <td><strong>${escapeHtml(a.device_name || `Dev ${a.device_id}`)}</strong><br><span style="font-size: 0.75rem; color: var(--text-secondary);">${portInfo}</span></td>
+            <td><span class="badge badge-down">${escapeHtml(a.severity.toUpperCase())}</span></td>
+            <td>${escapeHtml(a.message)}</td>
             <td>
                 <button class="btn btn-sm" onclick="resolveAlarm(${a.id})">✅ Resolver</button>
             </td>

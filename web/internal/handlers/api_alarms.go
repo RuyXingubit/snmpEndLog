@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"nms-web/internal/db"
@@ -23,8 +26,44 @@ type Alarm struct {
 	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
 }
 
+// buildAlarmsQuery generates the SQL query and arguments based on filters.
+func buildAlarmsQuery(statusFilter string, deviceIDFilter string) (string, []interface{}) {
+	query := `
+		SELECT a.id, a.device_id, d.hostname, a.entity_type, a.entity_id, 
+		       a.name, a.severity, a.status, a.message, a.created_at, a.resolved_at
+		FROM alarms a
+		JOIN devices d ON a.device_id = d.id
+	`
+
+	var conditions []string
+	var args []interface{}
+	argIdx := 1
+
+	if statusFilter != "all" && statusFilter != "" {
+		conditions = append(conditions, fmt.Sprintf("a.status = $%d", argIdx))
+		args = append(args, statusFilter)
+		argIdx++
+	}
+
+	if deviceIDFilter != "" && deviceIDFilter != "all" {
+		if devID, err := strconv.Atoi(deviceIDFilter); err == nil && devID > 0 {
+			conditions = append(conditions, fmt.Sprintf("a.device_id = $%d", argIdx))
+			args = append(args, devID)
+			argIdx++
+		}
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	query += " ORDER BY a.created_at DESC LIMIT 1000"
+
+	return query, args
+}
+
 // HandleAPIAlarms returns a list of alarms.
-// GET /api/alarms?status=active (or all, resolved)
+// GET /api/alarms?status=active (or all, resolved)&device_id=123
 func HandleAPIAlarms(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
@@ -33,24 +72,9 @@ func HandleAPIAlarms(w http.ResponseWriter, r *http.Request) {
 	if statusFilter == "" {
 		statusFilter = "active" // Default to active for backward compatibility
 	}
+	deviceIDFilter := r.URL.Query().Get("device_id")
 
-	query := `
-		SELECT a.id, a.device_id, d.hostname, a.entity_type, a.entity_id, 
-		       a.name, a.severity, a.status, a.message, a.created_at, a.resolved_at
-		FROM alarms a
-		JOIN devices d ON a.device_id = d.id
-	`
-	
-	args := []interface{}{}
-	if statusFilter != "all" {
-		query += " WHERE a.status = $1"
-		args = append(args, statusFilter)
-	}
-
-	query += " ORDER BY a.created_at DESC"
-
-	// Add hard limit to prevent huge queries
-	query += " LIMIT 1000"
+	query, args := buildAlarmsQuery(statusFilter, deviceIDFilter)
 
 	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {

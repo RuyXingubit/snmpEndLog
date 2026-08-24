@@ -10,25 +10,37 @@
 
 <!-- Filters -->
 <div class="card mb-md">
-    <div class="log-filters">
+    <div class="log-filters" style="margin-bottom: 0; padding: 0; background: transparent; border: none;">
+        <input type="text" class="form-input" id="alarm-search" placeholder="🔍 Filtrar alarmes (mensagem, porta, host)..." style="flex: 2; min-width: 200px;" oninput="applyClientFilter()">
+        
         <select class="form-input form-select" id="alarm-status" onchange="fetchAlarmsPage()">
             <option value="all">Todos os Status</option>
             <option value="active" selected>Ativos</option>
             <option value="resolved">Resolvidos</option>
         </select>
+
+        <select class="form-input form-select" id="alarm-device" onchange="fetchAlarmsPage()">
+            <option value="">Todos os Equipamentos</option>
+        </select>
+
+        <select class="form-input form-select" id="alarm-view-mode" onchange="changeViewMode()">
+            <option value="flat">📋 Lista Simples</option>
+            <option value="grouped">📊 Agrupar por Equipamento</option>
+        </select>
+
         <button class="btn btn-primary" onclick="fetchAlarmsPage()">Atualizar</button>
     </div>
 </div>
 
-<!-- Alarms Table -->
-<div class="card">
+<!-- Flat Table View -->
+<div class="card" id="alarms-flat-container">
     <div class="table-container">
         <table>
             <thead>
                 <tr>
-                    <th>Hora</th>
+                    <th>Data / Hora</th>
                     <th>Equipamento</th>
-                    <th>Porta/Interface</th>
+                    <th>Porta / Interface</th>
                     <th>Severidade</th>
                     <th>Status</th>
                     <th>Mensagem</th>
@@ -46,6 +58,11 @@
             </tbody>
         </table>
     </div>
+</div>
+
+<!-- Grouped by Device View -->
+<div id="alarms-grouped-container" style="display: none;">
+    <!-- Rendered dynamically by alarms.js -->
 </div>
 
 <script src="/static/js/alarms.js"></script>
