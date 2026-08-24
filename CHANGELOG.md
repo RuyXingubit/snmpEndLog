@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.12.0...v1.13.0) (2026-08-24)
+
+
+### Features
+
+* **alarms:** add full datetime and device grouping/filtering ([ffc4442](https://github.com/RuyXingubit/snmpEndLog/commit/ffc44422803043d5574d2488758d08e1d0272a9d))
+
 # [1.12.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.11.0...v1.12.0) (2026-08-01)
 
 
