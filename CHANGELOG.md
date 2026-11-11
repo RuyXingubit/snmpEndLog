@@ -1,3 +1,10 @@
+## [1.14.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.14.0...v1.14.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **security:** harden RBAC, syslog IP allowlist, XSS, CSRF, rate limiter and session revocation ([848903f](https://github.com/RuyXingubit/snmpEndLog/commit/848903fe9b9433f28496fdb096a5101de94c0f41))
+
 # [1.14.0](https://github.com/RuyXingubit/snmpEndLog/compare/v1.13.0...v1.14.0) (2026-08-24)
 
 
