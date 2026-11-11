@@ -320,6 +320,16 @@ def resolve_device_id_by_ip(ip: str) -> int | None:
             return row[0] if row else None
 
 
+def get_allowed_device_ips() -> dict[str, int]:
+    """Return a map of canonical host IP -> device_id for all enabled devices."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, host(ip_address) FROM devices WHERE enabled = TRUE"
+            )
+            return {str(row[1]): int(row[0]) for row in cur.fetchall() if row[1]}
+
+
 # ---- BGP Metrics (batch) ----
 
 def insert_bgp_metrics(rows: list[dict[str, Any]]) -> None:

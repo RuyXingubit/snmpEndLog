@@ -63,11 +63,11 @@ func main() {
 	authMux.HandleFunc("/devices", handlers.HandleDevices)
 	authMux.HandleFunc("/devices/", handlers.HandleDeviceDetail)
 	authMux.HandleFunc("/logs", handlers.HandleLogs)
-	authMux.HandleFunc("/ai", handlers.HandleAI)
 	authMux.HandleFunc("/alarms", handlers.HandleAlarms)
 
 	// Admin-only page routes (wrapped with RequireAdmin)
 	adminMux := http.NewServeMux()
+	adminMux.HandleFunc("/ai", handlers.HandleAI)
 	adminMux.HandleFunc("/devices/add", handlers.HandleDeviceAdd)
 	adminMux.HandleFunc("/devices/edit", handlers.HandleDeviceEdit)
 	adminMux.HandleFunc("/devices/delete", handlers.HandleDeviceDelete)
@@ -78,6 +78,7 @@ func main() {
 	adminMux.HandleFunc("/users/delete", handlers.HandleUserDelete)
 	adminMux.HandleFunc("/status", handlers.HandleStatus)
 
+	authMux.Handle("/ai", middleware.RequireAdmin(adminMux))
 	authMux.Handle("/devices/add", middleware.RequireAdmin(adminMux))
 	authMux.Handle("/devices/edit", middleware.RequireAdmin(adminMux))
 	authMux.Handle("/devices/delete", middleware.RequireAdmin(adminMux))
@@ -104,18 +105,18 @@ func main() {
 	apiMux.HandleFunc("/api/logs/export", handlers.HandleAPILogExport)
 	apiMux.HandleFunc("/api/logs/export/txt", handlers.HandleAPILogExportTXT)
 	apiMux.HandleFunc("/api/alarms", handlers.HandleAPIAlarms)
-	apiMux.HandleFunc("/api/alarms/", handlers.HandleAPIAlarmResolve)
-	apiMux.HandleFunc("/api/ai/sessions", handlers.HandleAISessions)
-	apiMux.HandleFunc("/api/ai/sessions/", handlers.HandleAISessionAction)
-	apiMux.HandleFunc("/api/status", handlers.HandleAPIStatus)
+	apiMux.Handle("/api/alarms/", middleware.RequireAdminAPI(http.HandlerFunc(handlers.HandleAPIAlarmResolve)))
+	apiMux.Handle("/api/ai/sessions", middleware.RequireAdminAPI(http.HandlerFunc(handlers.HandleAISessions)))
+	apiMux.Handle("/api/ai/sessions/", middleware.RequireAdminAPI(http.HandlerFunc(handlers.HandleAISessionAction)))
+	apiMux.Handle("/api/status", middleware.RequireAdminAPI(http.HandlerFunc(handlers.HandleAPIStatus)))
 
 	mux.Handle("/api/", middleware.RequireAPI(apiMux))
 
 	// Webhooks (Public but authenticated via Bearer)
 	mux.HandleFunc("/api/webhooks/link-quality", handlers.HandleWebhookLinkQuality)
 
-	// Wrap with logging middleware
-	handler := middleware.Logging(mux)
+	// Wrap with security headers, CSRF origin check, and logging middleware
+	handler := middleware.Logging(middleware.SecurityHeaders(middleware.CSRFOriginCheck(mux)))
 
 	// Start server
 	port := os.Getenv("WEB_PORT")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,20 +15,31 @@ import (
 	"nms-web/internal/middleware"
 )
 
-// HandleAI renders the AI analysis page.
+// MaxAIBodyBytes caps JSON request bodies on AI endpoints at 1 MB.
+const MaxAIBodyBytes = 1 << 20
+
+// HandleAI renders the AI analysis page (admin only).
 func HandleAI(w http.ResponseWriter, r *http.Request) {
+	if !isAdminUser(r) {
+		http.Error(w, "Acesso negado: permissão de administrador necessária.", http.StatusForbidden)
+		return
+	}
 	renderTemplate(w, "ai.html", map[string]interface{}{
 		"Title": "Análise IA",
 	}, r)
 }
 
-// HandleAISessions handles CRUD for AI sessions.
+// HandleAISessions handles CRUD for AI sessions (admin only).
 // GET  /api/ai/sessions        — list sessions
 // POST /api/ai/sessions        — create session
 func HandleAISessions(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r)
 	if claims == nil {
 		jsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if claims.Role != "admin" {
+		jsonResponse(w, http.StatusForbidden, map[string]string{"error": "admin access required"})
 		return
 	}
 
@@ -43,7 +55,8 @@ func HandleAISessions(w http.ResponseWriter, r *http.Request) {
 			LIMIT 50
 		`)
 		if err != nil {
-			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			log.Printf("HandleAISessions list error: %v", err)
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 			return
 		}
 		defer rows.Close()
@@ -69,11 +82,15 @@ func HandleAISessions(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Title string `json:"title"`
 		}
-		if err := parseJSON(r, &body); err != nil {
+		if err := parseJSON(w, r, &body); err != nil {
 			body.Title = "Nova Análise"
 		}
+		body.Title = strings.TrimSpace(body.Title)
 		if body.Title == "" {
 			body.Title = "Nova Análise"
+		}
+		if len(body.Title) > 200 {
+			body.Title = body.Title[:200]
 		}
 
 		var sessionID int
@@ -82,7 +99,8 @@ func HandleAISessions(w http.ResponseWriter, r *http.Request) {
 			body.Title,
 		).Scan(&sessionID)
 		if err != nil {
-			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			log.Printf("HandleAISessions create error: %v", err)
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 			return
 		}
 
@@ -96,12 +114,16 @@ func HandleAISessions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// HandleAISessionAction handles actions on a specific session.
+// HandleAISessionAction handles actions on a specific session (admin only).
 // Routes: /api/ai/sessions/{id}, /api/ai/sessions/{id}/context, /api/ai/sessions/{id}/ask, /api/ai/sessions/{id}/messages
 func HandleAISessionAction(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r)
 	if claims == nil {
 		jsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if claims.Role != "admin" {
+		jsonResponse(w, http.StatusForbidden, map[string]string{"error": "admin access required"})
 		return
 	}
 
@@ -142,7 +164,8 @@ func HandleAISessionAction(w http.ResponseWriter, r *http.Request) {
 func handleDeleteSession(w http.ResponseWriter, ctx context.Context, sessionID int) {
 	_, err := db.Pool.Exec(ctx, `DELETE FROM ai_sessions WHERE id = $1`, sessionID)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("handleDeleteSession error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted"})
@@ -151,7 +174,8 @@ func handleDeleteSession(w http.ResponseWriter, ctx context.Context, sessionID i
 func handleClearContext(w http.ResponseWriter, ctx context.Context, sessionID int) {
 	_, err := db.Pool.Exec(ctx, `DELETE FROM ai_messages WHERE session_id = $1`, sessionID)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("handleClearContext error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "cleared"})
@@ -165,7 +189,8 @@ func handleGetMessages(w http.ResponseWriter, ctx context.Context, sessionID int
 		ORDER BY created_at ASC
 	`, sessionID)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("handleGetMessages error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -198,7 +223,7 @@ func handleAddContext(w http.ResponseWriter, r *http.Request, ctx context.Contex
 		Start    string `json:"start"`
 		End      string `json:"end"`
 	}
-	if err := parseJSON(r, &body); err != nil {
+	if err := parseJSON(w, r, &body); err != nil {
 		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}
@@ -241,7 +266,8 @@ func handleAddContext(w http.ResponseWriter, r *http.Request, ctx context.Contex
 
 	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("handleAddContext logs query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -277,7 +303,8 @@ func handleAddContext(w http.ResponseWriter, r *http.Request, ctx context.Contex
 		sessionID, sb.String(),
 	)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("handleAddContext insert error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
@@ -294,7 +321,7 @@ func handleAsk(w http.ResponseWriter, r *http.Request, ctx context.Context, sess
 	var body struct {
 		Question string `json:"question"`
 	}
-	if err := parseJSON(r, &body); err != nil || strings.TrimSpace(body.Question) == "" {
+	if err := parseJSON(w, r, &body); err != nil || strings.TrimSpace(body.Question) == "" {
 		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "question is required"})
 		return
 	}
@@ -306,7 +333,8 @@ func handleAsk(w http.ResponseWriter, r *http.Request, ctx context.Context, sess
 		ORDER BY created_at ASC
 	`, sessionID)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("handleAsk query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -329,7 +357,8 @@ func handleAsk(w http.ResponseWriter, r *http.Request, ctx context.Context, sess
 	// Call Gemini
 	response, err := ai.Analyze(messages)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("handleAsk AI analyze error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "erro ao processar análise de IA"})
 		return
 	}
 
@@ -339,7 +368,8 @@ func handleAsk(w http.ResponseWriter, r *http.Request, ctx context.Context, sess
 		sessionID, body.Question, response,
 	)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("handleAsk store messages error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
@@ -358,8 +388,9 @@ func orDefault(s, def string) string {
 	return s
 }
 
-// parseJSON decodes JSON from request body.
-func parseJSON(r *http.Request, v interface{}) error {
+// parseJSON decodes JSON from request body with a strict size limit.
+func parseJSON(w http.ResponseWriter, r *http.Request, v interface{}) error {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxAIBodyBytes)
 	defer r.Body.Close()
 	return json.NewDecoder(r.Body).Decode(v)
 }

@@ -83,6 +83,10 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+function isUserAdmin() {
+    return Boolean(document.body && document.body.dataset && document.body.dataset.role === 'admin');
+}
+
 // ============================================
 // Sidebar mobile toggle
 // ============================================
@@ -152,28 +156,33 @@ function renderAlarmsTable(alarms) {
         return;
     }
 
+    const admin = isUserAdmin();
+
     tbody.innerHTML = alarms.map(a => {
-        let portInfo = a.entity_id;
+        let portInfo = escapeHtml(a.entity_id);
         if (a.entity_type === 'interface') {
-            const match = a.name.match(/Interface (.+) Down/);
+            const match = (a.name || '').match(/Interface (.+) Down/);
             if (match && match[1]) {
-                portInfo = `<strong>${match[1]}</strong>`;
+                portInfo = `<strong>${escapeHtml(match[1])}</strong>`;
             } else {
-                portInfo = `<strong>${a.name}</strong>`;
+                portInfo = `<strong>${escapeHtml(a.name)}</strong>`;
             }
         } else if (a.entity_type === 'bgp_peer') {
-            portInfo = `<strong>${a.entity_id}</strong>`;
+            portInfo = `<strong>${escapeHtml(a.entity_id)}</strong>`;
         }
+
+        const alarmId = Number(a.id) || 0;
+        const actionCell = admin
+            ? `<button class="btn btn-sm" onclick="resolveAlarm(${alarmId})">✅ Resolver</button>`
+            : `<span class="text-muted">—</span>`;
 
         return `
         <tr>
             <td class="log-time">${formatDateTime(a.created_at)}</td>
             <td><strong>${escapeHtml(a.device_name || `Dev ${a.device_id}`)}</strong><br><span style="font-size: 0.75rem; color: var(--text-secondary);">${portInfo}</span></td>
-            <td><span class="badge badge-down">${escapeHtml(a.severity.toUpperCase())}</span></td>
+            <td><span class="badge badge-down">${escapeHtml((a.severity || '').toUpperCase())}</span></td>
             <td>${escapeHtml(a.message)}</td>
-            <td>
-                <button class="btn btn-sm" onclick="resolveAlarm(${a.id})">✅ Resolver</button>
-            </td>
+            <td>${actionCell}</td>
         </tr>
         `;
     }).join('');

@@ -205,10 +205,16 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		renderTemplate(w, "login.html", nil, r)
 		return
 	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-	// Rate limit check
-	ip := r.RemoteAddr
-	if !LoginLimiter.Allow(ip) {
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+
+	// Rate limit check using real client IP (stripped of ephemeral port)
+	ip := middleware.ClientIP(r)
+	if LoginLimiter != nil && !LoginLimiter.Allow(ip) {
 		renderTemplate(w, "login.html", map[string]interface{}{
 			"Error": "Muitas tentativas. Aguarde alguns minutos.",
 		}, r)
@@ -234,7 +240,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   int(auth.TokenExpiry.Seconds()),
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   middleware.IsSecureRequest(r),
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -242,14 +248,20 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// HandleLogout clears the auth cookie and redirects to login.
+// HandleLogout clears the auth cookie and redirects to login (POST only).
 func HandleLogout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "token",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   middleware.IsSecureRequest(r),
 		SameSite: http.SameSiteStrictMode,
 	})
 	http.Redirect(w, r, "/login", http.StatusSeeOther)

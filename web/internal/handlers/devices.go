@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"nms-web/internal/db"
+	"nms-web/internal/middleware"
 )
 
 // Device represents a network device for templates.
@@ -68,8 +70,21 @@ type BgpPeer struct {
 	FsmEstablishedTime *int64
 }
 
+func isAdminUser(r *http.Request) bool {
+	claims := middleware.GetClaims(r)
+	return claims != nil && claims.Role == "admin"
+}
+
+func sanitizeDeviceForRole(d *Device, isAdmin bool) {
+	if !isAdmin {
+		d.Community = nil
+		d.WebhookToken = nil
+	}
+}
+
 // HandleDevices renders the device list/management page.
 func HandleDevices(w http.ResponseWriter, r *http.Request) {
+	isAdmin := isAdminUser(r)
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
@@ -82,6 +97,7 @@ func HandleDevices(w http.ResponseWriter, r *http.Request) {
 		ORDER BY id DESC
 	`)
 	if err != nil {
+		log.Printf("HandleDevices query error: %v", err)
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
@@ -99,6 +115,7 @@ func HandleDevices(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
+		sanitizeDeviceForRole(&d, isAdmin)
 		devices = append(devices, d)
 	}
 
@@ -117,12 +134,17 @@ func HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Route /devices/{id}/edit to the edit page
+	// Route /devices/{id}/edit to the admin-only edit page
 	if len(parts) >= 2 && parts[1] == "edit" {
+		if !isAdminUser(r) {
+			http.Error(w, "Acesso negado: permissão de administrador necessária.", http.StatusForbidden)
+			return
+		}
 		HandleDeviceEditPage(w, r)
 		return
 	}
 
+	isAdmin := isAdminUser(r)
 	deviceID, err := strconv.Atoi(parts[0])
 	if err != nil {
 		http.Error(w, "Invalid device ID", http.StatusBadRequest)
@@ -150,6 +172,7 @@ func HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	sanitizeDeviceForRole(&d, isAdmin)
 
 	// Fetch interfaces with latest traffic
 	irows, err := db.Pool.Query(ctx, `
@@ -228,6 +251,12 @@ func HandleDeviceAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if !isAdminUser(r) {
+		http.Error(w, "Acesso negado: permissão de administrador necessária.", http.StatusForbidden)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
@@ -260,17 +289,22 @@ func HandleDeviceAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Gerar UUIDv7 para Webhook
-	webhookToken, _ := uuid.NewV7()
+	webhookToken, err := uuid.NewV7()
+	if err != nil {
+		log.Printf("HandleDeviceAdd UUIDv7 error: %v", err)
+		http.Error(w, "Erro interno ao gerar token", http.StatusInternalServerError)
+		return
+	}
 	tokenStr := webhookToken.String()
 
 	if snmpVersion == "v2c" {
-
 		_, err := db.Pool.Exec(ctx, `
 			INSERT INTO devices (hostname, ip_address, snmp_version, community, poll_interval, snmp_enabled, webhook_token)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 		`, hostname, ipAddress, snmpVersion, community, pollInterval, snmpEnabled, tokenStr)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Erro ao adicionar: %v", err), http.StatusBadRequest)
+			log.Printf("HandleDeviceAdd DB error: %v", err)
+			http.Error(w, "Erro ao adicionar equipamento. Verifique se o hostname ou IP já está cadastrado.", http.StatusBadRequest)
 			return
 		}
 	} else {
@@ -293,7 +327,8 @@ func HandleDeviceAdd(w http.ResponseWriter, r *http.Request) {
 			v3AuthProto, v3AuthPass, v3PrivProto, v3PrivPass, v3SecLevel,
 			pollInterval, snmpEnabled, tokenStr)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Erro ao adicionar: %v", err), http.StatusBadRequest)
+			log.Printf("HandleDeviceAdd SNMPv3 DB error: %v", err)
+			http.Error(w, "Erro ao adicionar equipamento. Verifique se o hostname ou IP já está cadastrado.", http.StatusBadRequest)
 			return
 		}
 	}
@@ -307,6 +342,12 @@ func HandleDeviceDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if !isAdminUser(r) {
+		http.Error(w, "Acesso negado: permissão de administrador necessária.", http.StatusForbidden)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
 
 	deviceID, err := strconv.Atoi(r.FormValue("device_id"))
 	if err != nil {
@@ -319,6 +360,7 @@ func HandleDeviceDelete(w http.ResponseWriter, r *http.Request) {
 
 	_, err = db.Pool.Exec(ctx, "DELETE FROM devices WHERE id = $1", deviceID)
 	if err != nil {
+		log.Printf("HandleDeviceDelete DB error: %v", err)
 		http.Error(w, "Error deleting device", http.StatusInternalServerError)
 		return
 	}
@@ -332,6 +374,12 @@ func HandleDeviceEdit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if !isAdminUser(r) {
+		http.Error(w, "Acesso negado: permissão de administrador necessária.", http.StatusForbidden)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 
 	deviceID, err := strconv.Atoi(r.FormValue("device_id"))
 	if err != nil {
@@ -367,15 +415,21 @@ func HandleDeviceEdit(w http.ResponseWriter, r *http.Request) {
 		WHERE id = $6
 	`, hostname, community, pollInterval, pingEnabled, snmpEnabled, deviceID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Erro ao atualizar: %v", err), http.StatusInternalServerError)
+		log.Printf("HandleDeviceEdit DB error: %v", err)
+		http.Error(w, "Erro ao atualizar equipamento.", http.StatusInternalServerError)
 		return
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/devices/%d", deviceID), http.StatusSeeOther)
 }
 
-// HandleDeviceEditPage renders the device edit/settings page (GET).
+// HandleDeviceEditPage renders the device edit/settings page (GET, admin only).
 func HandleDeviceEditPage(w http.ResponseWriter, r *http.Request) {
+	if !isAdminUser(r) {
+		http.Error(w, "Acesso negado: permissão de administrador necessária.", http.StatusForbidden)
+		return
+	}
+
 	// Parse device ID from URL: /devices/{id}/edit
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(parts) < 3 {
@@ -421,6 +475,12 @@ func HandleDeviceGenerateToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if !isAdminUser(r) {
+		http.Error(w, "Acesso negado: permissão de administrador necessária.", http.StatusForbidden)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
 
 	deviceID, err := strconv.Atoi(r.FormValue("device_id"))
 	if err != nil {
@@ -432,11 +492,17 @@ func HandleDeviceGenerateToken(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	// Gerar UUIDv7 para Webhook
-	webhookToken, _ := uuid.NewV7()
+	webhookToken, err := uuid.NewV7()
+	if err != nil {
+		log.Printf("HandleDeviceGenerateToken UUIDv7 error: %v", err)
+		http.Error(w, "Error generating token", http.StatusInternalServerError)
+		return
+	}
 	tokenStr := webhookToken.String()
 
 	_, err = db.Pool.Exec(ctx, `UPDATE devices SET webhook_token = $1 WHERE id = $2`, tokenStr, deviceID)
 	if err != nil {
+		log.Printf("HandleDeviceGenerateToken DB error: %v", err)
 		http.Error(w, "Error generating token", http.StatusInternalServerError)
 		return
 	}

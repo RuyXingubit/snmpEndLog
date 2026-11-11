@@ -143,9 +143,9 @@ function renderFlatView(alarms) {
             ? `<span class="badge" style="background: var(--status-up); color: white;">RESOLVIDO</span>`
             : `<span class="badge badge-down">ATIVO</span>`;
         
-        let actions = '';
-        if (!isResolved) {
-            actions = `<button class="btn btn-sm" onclick="resolveAlarmPage(${a.id})">✅ Resolver</button>`;
+        let actions = '<span class="text-muted">—</span>';
+        if (!isResolved && typeof isUserAdmin === 'function' && isUserAdmin()) {
+            actions = `<button class="btn btn-sm" onclick="resolveAlarmPage(${Number(a.id) || 0})">✅ Resolver</button>`;
         }
 
         const portInfo = formatPortInfo(a);
@@ -205,9 +205,9 @@ function renderGroupedView(alarms) {
                 ? `<span class="badge" style="background: var(--status-up); color: white;">RESOLVIDO</span>`
                 : `<span class="badge badge-down">ATIVO</span>`;
             
-            let actions = '';
-            if (!isResolved) {
-                actions = `<button class="btn btn-sm" onclick="resolveAlarmPage(${a.id})">✅ Resolver</button>`;
+            let actions = '<span class="text-muted">—</span>';
+            if (!isResolved && typeof isUserAdmin === 'function' && isUserAdmin()) {
+                actions = `<button class="btn btn-sm" onclick="resolveAlarmPage(${Number(a.id) || 0})">✅ Resolver</button>`;
             }
 
             const portInfo = formatPortInfo(a);

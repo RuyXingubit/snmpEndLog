@@ -42,7 +42,9 @@
         <button class="btn btn-primary" onclick="searchLogs()">Buscar</button>
         <button class="btn btn-sm" onclick="exportCSV()" title="Exportar CSV" style="padding: 0.5rem 0.75rem;">📥 CSV</button>
         <button class="btn btn-sm" onclick="exportTXT()" title="Exportar TXT" style="padding: 0.5rem 0.75rem;">📄 TXT</button>
+        {{if eq .Role "admin"}}
         <button class="btn btn-sm" onclick="openSendToAI()" title="Enviar logs filtrados para sessão de IA" style="padding: 0.5rem 0.75rem;">🤖 Enviar para IA</button>
+        {{end}}
     </div>
 </div>
 
@@ -111,6 +113,7 @@
     document.getElementById('log-exact').addEventListener('change', searchLogs);
 </script>
 
+{{if eq .Role "admin"}}
 <!-- Modal: Enviar para sessão de IA -->
 <div class="modal-overlay" id="ai-session-modal">
     <div class="modal">
@@ -130,4 +133,5 @@
         </div>
     </div>
 </div>
+{{end}}
 {{end}}

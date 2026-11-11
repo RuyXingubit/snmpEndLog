@@ -8,15 +8,23 @@ import (
 	"nms-web/internal/db"
 )
 
-// HandleStatus renders the system status page.
+// HandleStatus renders the system status page (admin only).
 func HandleStatus(w http.ResponseWriter, r *http.Request) {
+	if !isAdminUser(r) {
+		http.Error(w, "Acesso negado: permissão de administrador necessária.", http.StatusForbidden)
+		return
+	}
 	renderTemplate(w, "status.html", map[string]interface{}{
 		"Title": "Status",
 	}, r)
 }
 
-// HandleAPIStatus returns system health metrics.
+// HandleAPIStatus returns system health metrics (admin only).
 func HandleAPIStatus(w http.ResponseWriter, r *http.Request) {
+	if !isAdminUser(r) {
+		jsonResponse(w, http.StatusForbidden, map[string]string{"error": "admin access required"})
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 

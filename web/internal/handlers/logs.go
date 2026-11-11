@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -111,7 +112,8 @@ func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("HandleAPILogs query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -152,7 +154,8 @@ func HandleAPILogStats(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("HandleAPILogs query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -181,7 +184,8 @@ func HandleAPILogHosts(w http.ResponseWriter, r *http.Request) {
 		ORDER BY host
 	`)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("HandleAPILogHosts query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -265,21 +269,28 @@ func HandleAPILogExport(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Escape CSV fields (double-quote fields containing commas/quotes/newlines)
-		escapeCsv := func(s string) string {
-			if strings.ContainsAny(s, ",\"\r\n") {
-				return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
-			}
-			return s
-		}
-
 		line := t.Format("2006-01-02 15:04:05") + "," +
-			escapeCsv(h) + "," +
-			escapeCsv(sev) + "," +
-			escapeCsv(app) + "," +
-			escapeCsv(msg) + "\r\n"
+			SanitizeCSVField(h) + "," +
+			SanitizeCSVField(sev) + "," +
+			SanitizeCSVField(app) + "," +
+			SanitizeCSVField(msg) + "\r\n"
 		w.Write([]byte(line))
 	}
+}
+
+// SanitizeCSVField prevents CSV formula injection (DDE/Excel) and escapes RFC-4180 delimiters.
+func SanitizeCSVField(s string) string {
+	trimmed := strings.TrimLeft(s, " ")
+	if len(trimmed) > 0 {
+		switch trimmed[0] {
+		case '=', '+', '-', '@', '\t', '\r':
+			s = "'" + s
+		}
+	}
+	if strings.ContainsAny(s, ",\"\r\n") {
+		return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
+	}
+	return s
 }
 
 // HandleAPILogExportTXT streams filtered logs as plain text download.

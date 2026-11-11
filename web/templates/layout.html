@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="/static/js/app.js"></script>
 </head>
-<body>
+<body data-role="{{.Role}}">
 <div class="app-layout">
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
@@ -40,16 +40,16 @@
                 <span class="nav-icon">📋</span>
                 Logs
             </a>
-            <a href="/ai" class="nav-item {{if eq .Title "NOC AI"}}active{{end}}">
+            {{if eq .Role "admin"}}
+            <a href="/ai" class="nav-item {{if or (eq .Title "NOC AI") (eq .Title "Análise IA")}}active{{end}}">
                 <span class="nav-icon">🤖</span>
                 NOC AI
             </a>
-            {{if eq .Role "admin"}}
             <a href="/users" class="nav-item {{if eq .Title "Usuários"}}active{{end}}">
                 <span class="nav-icon">👥</span>
                 Usuários
             </a>
-            <a href="/status" class="nav-item {{if eq .Title "Status do Sistema"}}active{{end}}">
+            <a href="/status" class="nav-item {{if or (eq .Title "Status do Sistema") (eq .Title "Status")}}active{{end}}">
                 <span class="nav-icon">⚙️</span>
                 Status do Sistema
             </a>
@@ -59,7 +59,9 @@
             <div class="user-avatar">{{if .Username}}{{slice .Username 0 1}}{{else}}?{{end}}</div>
             <div class="user-info">
                 <span class="user-name">{{.Username}}</span>
-                <a href="/logout" style="margin-left: auto; font-size: 0.8rem;" title="Sair">🚪</a>
+                <form method="POST" action="/logout" style="margin-left: auto; display: inline;">
+                    <button type="submit" style="background: none; border: none; cursor: pointer; font-size: 0.8rem; padding: 0;" title="Sair">🚪</button>
+                </form>
             </div>
         </div>
     </aside>

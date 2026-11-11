@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -59,7 +60,8 @@ func HandleAPITraffic(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("Metrics query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -99,7 +101,8 @@ func HandleAPISystem(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("Metrics query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -147,7 +150,8 @@ func HandleAPIPing(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("Metrics query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -189,7 +193,8 @@ func HandleAPIWebhookPing(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("Metrics query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -236,7 +241,8 @@ func HandleAPIBGP(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("Metrics query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()

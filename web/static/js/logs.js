@@ -53,12 +53,14 @@ async function loadLogStats() {
     let html = '';
     stats.forEach(s => {
         const meta = severityColors[s.severity] || { icon: '⚪', class: 'accent' };
+        const safeSev = escapeHtml(s.severity);
+        const safeCount = Number(s.count) || 0;
         html += `
             <div class="stat-card ${meta.class}" style="cursor:pointer"
-                 onclick="filterBySeverity('${s.severity}')">
+                 data-severity="${safeSev}" onclick="filterBySeverity(this.dataset.severity)">
                 <div class="stat-icon">${meta.icon}</div>
-                <div class="stat-value">${s.count}</div>
-                <div class="stat-label">${s.severity}</div>
+                <div class="stat-value">${safeCount}</div>
+                <div class="stat-label">${safeSev}</div>
             </div>
         `;
     });

@@ -4,12 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"math"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"nms-web/internal/db"
 )
+
+// MaxWebhookBodyBytes caps incoming router webhook JSON bodies at 64 KB.
+const MaxWebhookBodyBytes = 64 << 10
 
 // WebhookLinkQualityPayload represents the JSON payload sent by the router.
 type WebhookLinkQualityPayload struct {
@@ -20,6 +26,33 @@ type WebhookLinkQualityPayload struct {
 	RttMax     *float64 `json:"rtt_max,omitempty"`
 }
 
+// IsValidWebhookTarget returns true if target is a valid IPv4/IPv6 address or RFC-1123 hostname.
+func IsValidWebhookTarget(target string) bool {
+	if target == "" || len(target) > 253 {
+		return false
+	}
+	if net.ParseIP(target) != nil {
+		return true
+	}
+	labels := strings.Split(target, ".")
+	for _, label := range labels {
+		if len(label) == 0 || len(label) > 63 {
+			return false
+		}
+		if label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for i := 0; i < len(label); i++ {
+			c := label[i]
+			isAlphaNum := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+			if !isAlphaNum && c != '-' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // HandleWebhookLinkQuality handles incoming webhooks for link quality checks.
 // POST /api/webhooks/link-quality
 func HandleWebhookLinkQuality(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +61,9 @@ func HandleWebhookLinkQuality(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Authenticate using Bearer Token
+	r.Body = http.MaxBytesReader(w, r.Body, MaxWebhookBodyBytes)
+
+	// 1. Extract Bearer Token
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
@@ -37,11 +72,38 @@ func HandleWebhookLinkQuality(w http.ResponseWriter, r *http.Request) {
 
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 	if token == authHeader {
-		// Prefix wasn't found
 		http.Error(w, "Invalid Authorization format", http.StatusUnauthorized)
 		return
 	}
 	token = strings.TrimSpace(token)
+	if token == "" || len(token) > 128 {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	// 2. Parse and validate payload before hitting the database
+	var payload WebhookLinkQualityPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	payload.TargetIP = strings.TrimSpace(payload.TargetIP)
+	if !IsValidWebhookTarget(payload.TargetIP) {
+		http.Error(w, "Invalid target_ip", http.StatusBadRequest)
+		return
+	}
+
+	if math.IsNaN(payload.PacketLoss) || math.IsInf(payload.PacketLoss, 0) || payload.PacketLoss < 0 || payload.PacketLoss > 100 {
+		http.Error(w, "Invalid packet_loss value", http.StatusBadRequest)
+		return
+	}
+
+	// 3. Authenticate token against database
+	if db.Pool == nil {
+		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
@@ -53,25 +115,13 @@ func HandleWebhookLinkQuality(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Parse payload
-	var payload WebhookLinkQualityPayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
-		return
-	}
-
-	if payload.TargetIP == "" {
-		http.Error(w, "target_ip is required", http.StatusBadRequest)
-		return
-	}
-
-	// 3. Insert metric
+	// 4. Insert metric
 	_, err = db.Pool.Exec(ctx, `
 		INSERT INTO metric_link_quality (time, device_id, target_ip, rtt_min, rtt_avg, rtt_max, packet_loss)
 		VALUES (NOW(), $1, $2, $3, $4, $5, $6)
 	`, deviceID, payload.TargetIP, payload.RttMin, payload.RttAvg, payload.RttMax, payload.PacketLoss)
 	if err != nil {
-		// Log the error but don't expose DB internals
+		log.Printf("HandleWebhookLinkQuality DB error: %v", err)
 		http.Error(w, "Failed to store metric", http.StatusInternalServerError)
 		return
 	}

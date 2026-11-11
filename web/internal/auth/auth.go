@@ -41,13 +41,40 @@ type User struct {
 // jwtSecret is loaded from environment.
 var jwtSecret []byte
 
-// Init initializes the auth module and creates the admin user if needed.
-func Init() error {
-	secret := os.Getenv("JWT_SECRET")
+// UserLookupFunc fetches the current (username, role) for a userID from persistent storage.
+// Defaults to LookupActiveUser against PostgreSQL.
+var UserLookupFunc = LookupActiveUser
+
+// LookupActiveUser verifies the user still exists in PostgreSQL and returns their fresh username and role.
+func LookupActiveUser(ctx context.Context, userID int) (string, string, error) {
+	if db.Pool == nil {
+		return "", "", errors.New("database not initialized")
+	}
+	var username, role string
+	err := db.Pool.QueryRow(ctx,
+		"SELECT username, role FROM users WHERE id = $1",
+		userID,
+	).Scan(&username, &role)
+	if err != nil {
+		return "", "", err
+	}
+	return username, role, nil
+}
+
+// InitSecret validates and sets the HMAC secret used for signing and verifying JWT tokens.
+func InitSecret(secret string) error {
 	if len(secret) < 32 {
 		return errors.New("JWT_SECRET must be at least 32 characters")
 	}
 	jwtSecret = []byte(secret)
+	return nil
+}
+
+// Init initializes the auth module and creates the admin user if needed.
+func Init() error {
+	if err := InitSecret(os.Getenv("JWT_SECRET")); err != nil {
+		return err
+	}
 
 	// Create admin user if no users exist
 	return ensureAdminUser()
@@ -118,7 +145,11 @@ func Authenticate(username, password string) (string, error) {
 		return "", errors.New("invalid credentials")
 	}
 
-	// Generate JWT
+	return GenerateToken(user)
+}
+
+// GenerateToken creates a signed HS256 JWT token for the given user.
+func GenerateToken(user User) (string, error) {
 	now := time.Now()
 	claims := &Claims{
 		UserID:   user.ID,

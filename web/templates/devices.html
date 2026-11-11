@@ -68,6 +68,7 @@
 </div>
 {{end}}
 
+{{if eq .Role "admin"}}
 <!-- Add Device Modal -->
 <div class="modal-overlay" id="add-modal">
     <div class="modal">
@@ -216,5 +217,6 @@ function openDeleteModal(id, hostname) {
     document.getElementById('delete-modal').classList.add('active');
 }
 </script>
+{{end}}
 
 {{end}}

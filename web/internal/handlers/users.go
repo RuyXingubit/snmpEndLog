@@ -101,6 +101,8 @@ func HandleUserCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
 	role := r.FormValue("role")
@@ -180,6 +182,8 @@ func HandleUserEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+
 	userIDStr := r.FormValue("user_id")
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
@@ -255,6 +259,8 @@ func HandleUserDelete(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
 	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
 
 	userIDStr := r.FormValue("user_id")
 	userID, err := strconv.Atoi(userIDStr)

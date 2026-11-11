@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -78,7 +79,8 @@ func HandleAPIAlarms(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("HandleAPIAlarms query error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	defer rows.Close()
@@ -103,31 +105,44 @@ func HandleAPIAlarms(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, alarms)
 }
 
-// HandleAPIAlarmResolve resolves an active alarm manually.
+// HandleAPIAlarmResolve resolves an active alarm manually (POST, admin only).
 // POST /api/alarms/{id}/resolve
 func HandleAPIAlarmResolve(w http.ResponseWriter, r *http.Request) {
-	// Extract ID from path manually since we don't have a strict router
-	// e.g. /api/alarms/123/resolve
-	pathParts := r.URL.Path[len("/api/alarms/"):] // "123/resolve"
-	idStr := ""
-	for i := 0; i < len(pathParts); i++ {
-		if pathParts[i] == '/' {
-			break
-		}
-		idStr += string(pathParts[i])
+	if r.Method != http.MethodPost {
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	if !isAdminUser(r) {
+		jsonResponse(w, http.StatusForbidden, map[string]string{"error": "admin access required"})
+		return
+	}
+
+	// Expected path: /api/alarms/{id}/resolve
+	trimmed := strings.TrimPrefix(r.URL.Path, "/api/alarms/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "resolve" {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid alarm action"})
+		return
+	}
+
+	alarmID, err := strconv.Atoi(parts[0])
+	if err != nil || alarmID <= 0 {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid alarm id"})
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	_, err := db.Pool.Exec(ctx, `
+	_, err = db.Pool.Exec(ctx, `
 		UPDATE alarms 
 		SET status = 'resolved', resolved_at = NOW()
 		WHERE id = $1 AND status = 'active'
-	`, idStr)
+	`, alarmID)
 
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		log.Printf("HandleAPIAlarmResolve DB error: %v", err)
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
