@@ -11,6 +11,7 @@ sys.modules.setdefault("psycopg2", MagicMock())
 sys.modules.setdefault("psycopg2.pool", MagicMock())
 sys.modules.setdefault("psycopg2.extras", MagicMock())
 
+import db  # noqa: E402
 from logs.receiver import (  # noqa: E402
     MAX_MESSAGE_SIZE,
     SyslogReceiver,
@@ -102,11 +103,87 @@ class TestSyslogReceiverSecurity(unittest.TestCase):
     def test_receiver_refresh_allowlist(self):
         async def _run():
             receiver = SyslogReceiver(udp_port=5514, tcp_port=5514)
-            with patch("db.get_allowed_device_ips", return_value={"177.53.139.255": 12}):
+            expected = {
+                "177.53.139.255": {
+                    "id": 12,
+                    "hostname": "BGP-SJP",
+                    "sys_name": "BGP-SJP",
+                }
+            }
+            with patch("db.get_allowed_devices", return_value=expected):
                 await receiver.refresh_allowlist()
-            self.assertEqual(receiver._allowed_ips, {"177.53.139.255": 12})
+            self.assertEqual(receiver._allowed_ips, expected)
 
         asyncio.run(_run())
+
+    def test_allowed_device_host_binding_and_foreign_ip_sanitization(self):
+        buffer = []
+        lock = asyncio.Lock()
+        allowed_ips = {
+            "143.208.139.255": {
+                "id": 7,
+                "hostname": "BGP-ATM",
+                "sys_name": "BNG-PROSERV",
+            }
+        }
+        proto = SyslogUDPProtocol(buffer, lock, allowed_ips)
+
+        # 1. Valid sys_name matching device identity keeps BNG-PROSERV
+        proto.datagram_received(
+            b"<134>Nov 16 12:00:00 BNG-PROSERV bgpd[10]: peer up",
+            ("143.208.139.255", 514),
+        )
+        self.assertEqual(len(buffer), 1)
+        self.assertEqual(buffer[0]["device_id"], 7)
+        self.assertEqual(buffer[0]["host"], "BNG-PROSERV")
+
+        # 2. Headless BSD message starting with a foreign IP rewrites host to registered identity
+        #    and preserves the foreign IP inside message text
+        proto.datagram_received(
+            b"<134>Nov 16 12:00:00 188.240.59.45 login failure for root",
+            ("143.208.139.255", 514),
+        )
+        self.assertEqual(len(buffer), 2)
+        self.assertEqual(buffer[1]["device_id"], 7)
+        self.assertEqual(buffer[1]["host"], "BNG-PROSERV")
+        self.assertIn("188.240.59.45", buffer[1]["message"])
+
+        # 3. Spoofed/unregistered hostname from allowed IP is normalized to registered identity
+        proto.datagram_received(
+            b"<134>Nov 16 12:00:00 evil-spoof sshd: msg",
+            ("143.208.139.255", 514),
+        )
+        self.assertEqual(len(buffer), 3)
+        self.assertEqual(buffer[2]["device_id"], 7)
+        self.assertEqual(buffer[2]["host"], "BNG-PROSERV")
+        self.assertEqual(buffer[2]["app_name"], "sshd")
+        self.assertEqual(buffer[2]["message"], "msg")
+
+    def test_insert_logs_skips_rows_without_device_id(self):
+        mock_cursor = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_pool = MagicMock()
+        mock_pool.getconn.return_value = mock_conn
+
+        rows_all_orphan = [
+            {"time": "2026-11-16T12:00:00Z", "host": "188.240.59.45", "device_id": None, "message": "scan"}
+        ]
+        rows_mixed = [
+            {"time": "2026-11-16T12:00:00Z", "host": "188.240.59.45", "device_id": None, "message": "scan"},
+            {"time": "2026-11-16T12:00:01Z", "host": "BNG-PROSERV", "device_id": 7, "message": "valid log"},
+        ]
+
+        with patch.object(db, "_pool", mock_pool), patch("db.psycopg2.extras.execute_values") as mock_exec:
+            db.insert_logs(rows_all_orphan)
+            mock_exec.assert_not_called()
+
+            db.insert_logs(rows_mixed)
+            mock_exec.assert_called_once()
+            inserted_tuples = mock_exec.call_args[0][2]
+            self.assertEqual(len(inserted_tuples), 1)
+            self.assertEqual(inserted_tuples[0][1], "BNG-PROSERV")
+            self.assertEqual(inserted_tuples[0][2], 7)
 
 
 if __name__ == "__main__":

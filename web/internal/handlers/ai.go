@@ -230,37 +230,13 @@ func handleAddContext(w http.ResponseWriter, r *http.Request, ctx context.Contex
 
 	tf := parseTimeFilterFromBody(body.Period, body.Start, body.End)
 
-	// Build query for logs
-	var where []string
-	var args []interface{}
-	argIdx := 1
-	where, args, argIdx = tf.AppendTimeWhere(where, args, argIdx)
-
-	if body.Host != "" {
-		where = append(where, "host = $"+strconv.Itoa(argIdx))
-		args = append(args, body.Host)
-		argIdx++
-	}
-
-	if body.Severity != "" {
-		where = append(where, "severity_name = $"+strconv.Itoa(argIdx))
-		args = append(args, body.Severity)
-		argIdx++
-	}
-
-	if body.Search != "" {
-		if body.Exact {
-			where = append(where, "(message ILIKE $"+strconv.Itoa(argIdx)+" OR app_name ILIKE $"+strconv.Itoa(argIdx)+")")
-			args = append(args, "%"+body.Search+"%")
-		} else {
-			where = append(where, "(to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+") OR app_name ILIKE $"+strconv.Itoa(argIdx+1)+")")
-			args = append(args, body.Search, "%"+body.Search+"%")
-			argIdx++
-		}
-		argIdx++
-	}
-
-	whereClause := strings.Join(where, " AND ")
+	whereClause, args, _ := buildLogsFilterWhere(
+		tf,
+		strings.TrimSpace(body.Host),
+		strings.TrimSpace(body.Severity),
+		strings.TrimSpace(body.Search),
+		body.Exact,
+	)
 	query := "SELECT time, host, COALESCE(severity_name, 'unknown'), COALESCE(app_name, ''), message FROM logs WHERE " +
 		whereClause + " ORDER BY time DESC LIMIT 500"
 

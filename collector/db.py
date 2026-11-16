@@ -285,8 +285,11 @@ def insert_ping_metrics(rows: list[dict[str, Any]]) -> None:
 # ---- Log inserts (batch) ----
 
 def insert_logs(rows: list[dict[str, Any]]) -> None:
-    """Batch insert syslog messages."""
+    """Batch insert syslog messages from registered devices only."""
     if not rows:
+        return
+    valid_rows = [r for r in rows if r.get("device_id") is not None]
+    if not valid_rows:
         return
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -298,12 +301,12 @@ def insert_logs(rows: list[dict[str, Any]]) -> None:
                    VALUES %s""",
                 [
                     (
-                        r["time"], r["host"], r.get("device_id"),
+                        r["time"], r["host"], r["device_id"],
                         r.get("facility"), r.get("severity"),
                         r.get("facility_name"), r.get("severity_name"),
                         r.get("app_name"), r["message"], r.get("raw"),
                     )
-                    for r in rows
+                    for r in valid_rows
                 ],
             )
 
@@ -328,6 +331,28 @@ def get_allowed_device_ips() -> dict[str, int]:
                 "SELECT id, host(ip_address) FROM devices WHERE enabled = TRUE"
             )
             return {str(row[1]): int(row[0]) for row in cur.fetchall() if row[1]}
+
+
+def get_allowed_devices() -> dict[str, dict[str, Any]]:
+    """Return a map of canonical host IP -> {id, hostname, sys_name} for all enabled devices."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, host(ip_address), hostname, sys_name
+                FROM devices
+                WHERE enabled = TRUE AND ip_address IS NOT NULL
+                """
+            )
+            allowed: dict[str, dict[str, Any]] = {}
+            for dev_id, ip_str, hostname, sys_name in cur.fetchall():
+                if ip_str:
+                    allowed[str(ip_str)] = {
+                        "id": int(dev_id),
+                        "hostname": (hostname or "").strip(),
+                        "sys_name": (sys_name or "").strip(),
+                    }
+            return allowed
 
 
 # ---- BGP Metrics (batch) ----

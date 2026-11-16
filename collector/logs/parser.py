@@ -1,5 +1,6 @@
 """Syslog message parser supporting RFC 3164 (BSD) and RFC 5424."""
 
+import ipaddress
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -155,3 +156,67 @@ def parse_syslog_message(raw: str, source_ip: str = "") -> dict[str, Any]:
         "message": raw,
         "raw": raw,
     }
+
+
+def _canonical_ip_str(ip_str: str) -> str | None:
+    """Return canonical IP string (unwrapping IPv4-mapped IPv6), or None if not an IP."""
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+            return str(addr.ipv4_mapped)
+        return str(addr)
+    except ValueError:
+        return None
+
+
+def _is_foreign_ip_or_tag(token: str, src_ip: str) -> bool:
+    """Return True if token looks like a syslog app tag or an IP different from src_ip."""
+    if not token:
+        return False
+    if token.endswith(":") or "[" in token:
+        return True
+    parsed_ip = _canonical_ip_str(token)
+    if parsed_ip is None:
+        return False
+    norm_src = _canonical_ip_str(src_ip) or src_ip
+    return parsed_ip != norm_src
+
+
+def apply_registered_device_identity(
+    parsed: dict[str, Any],
+    device_id: int,
+    source_ip: str,
+    dev_hostname: str = "",
+    dev_sys_name: str = "",
+) -> dict[str, Any]:
+    """Bind a parsed syslog entry to the verified registered device identity."""
+    parsed["device_id"] = device_id
+
+    clean_hostname = (dev_hostname or "").strip()
+    clean_sys_name = (dev_sys_name or "").strip()
+    raw_host = (parsed.get("host") or "").strip()
+
+    allowed_names = {n.lower() for n in (clean_hostname, clean_sys_name) if n}
+    canonical_host = clean_sys_name or clean_hostname or source_ip
+
+    def _restore_misclassified_host_token() -> None:
+        if raw_host.endswith(":") and parsed.get("app_name") is None:
+            parsed["app_name"] = raw_host[:-1].split("[", 1)[0] or None
+            return
+        msg = parsed.get("message") or ""
+        if not msg.startswith(raw_host):
+            parsed["message"] = f"{raw_host} {msg}".strip()
+
+    if allowed_names:
+        if raw_host.lower() in allowed_names:
+            parsed["host"] = raw_host
+        else:
+            if raw_host and _is_foreign_ip_or_tag(raw_host, source_ip):
+                _restore_misclassified_host_token()
+            parsed["host"] = canonical_host
+    else:
+        if raw_host and _is_foreign_ip_or_tag(raw_host, source_ip):
+            _restore_misclassified_host_token()
+            parsed["host"] = source_ip
+
+    return parsed

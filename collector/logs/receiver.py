@@ -13,7 +13,7 @@ import logging
 from typing import Any
 
 import db
-from logs.parser import parse_syslog_message
+from logs.parser import apply_registered_device_identity, parse_syslog_message
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,24 @@ def normalize_ip(ip_str: str) -> str:
         return ip_str
 
 
+def _resolve_allowed_device(
+    allowed_ips: dict[str, Any], source_ip: str
+) -> tuple[int, str, str] | None:
+    """Resolve an allowed source IP to (device_id, hostname, sys_name), or None."""
+    entry = allowed_ips.get(source_ip)
+    if entry is None:
+        return None
+    if isinstance(entry, int):
+        return (entry, "", "")
+    if isinstance(entry, dict) and entry.get("id") is not None:
+        return (
+            int(entry["id"]),
+            str(entry.get("hostname") or ""),
+            str(entry.get("sys_name") or ""),
+        )
+    return None
+
+
 class SyslogUDPProtocol(asyncio.DatagramProtocol):
     """UDP syslog receiver (RFC 3164/5424 over UDP)."""
 
@@ -41,7 +59,7 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         self,
         buffer: list[dict[str, Any]],
         buffer_lock: asyncio.Lock,
-        allowed_ips: dict[str, int],
+        allowed_ips: dict[str, Any],
     ):
         self._buffer = buffer
         self._buffer_lock = buffer_lock
@@ -54,9 +72,10 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         source_ip = normalize_ip(addr[0])
 
         # Security: O(1) in-memory IP allowlist check — silently drop unknown IPs
-        device_id = self._allowed_ips.get(source_ip)
-        if device_id is None:
+        resolved = _resolve_allowed_device(self._allowed_ips, source_ip)
+        if resolved is None:
             return
+        device_id, dev_hostname, dev_sys_name = resolved
 
         # Security: reject oversized messages
         if len(data) > MAX_MESSAGE_SIZE:
@@ -71,7 +90,9 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             if not raw:
                 return
             parsed = parse_syslog_message(raw, source_ip)
-            parsed["device_id"] = device_id
+            apply_registered_device_identity(
+                parsed, device_id, source_ip, dev_hostname, dev_sys_name
+            )
 
             self._buffer.append(parsed)
 
@@ -84,14 +105,14 @@ async def handle_tcp_client(
     writer: asyncio.StreamWriter,
     buffer: list[dict[str, Any]],
     buffer_lock: asyncio.Lock,
-    allowed_ips: dict[str, int],
+    allowed_ips: dict[str, Any],
 ) -> None:
     """Handle a single TCP syslog client connection."""
     addr = writer.get_extra_info("peername")
     source_ip = normalize_ip(addr[0]) if addr else ""
 
     # Security: immediately close TCP connections from unauthorized IPs
-    if source_ip not in allowed_ips:
+    if _resolve_allowed_device(allowed_ips, source_ip) is None:
         writer.close()
         try:
             await writer.wait_closed()
@@ -107,9 +128,10 @@ async def handle_tcp_client(
             if not data:
                 break
 
-            device_id = allowed_ips.get(source_ip)
-            if device_id is None:
+            resolved = _resolve_allowed_device(allowed_ips, source_ip)
+            if resolved is None:
                 break
+            device_id, dev_hostname, dev_sys_name = resolved
 
             # Security: reject oversized messages
             if len(data) > MAX_MESSAGE_SIZE:
@@ -124,7 +146,9 @@ async def handle_tcp_client(
                 continue
 
             parsed = parse_syslog_message(raw, source_ip)
-            parsed["device_id"] = device_id
+            apply_registered_device_identity(
+                parsed, device_id, source_ip, dev_hostname, dev_sys_name
+            )
 
             buffer.append(parsed)
 
@@ -153,7 +177,7 @@ class SyslogReceiver:
         self.tcp_port = tcp_port
         self._buffer: list[dict[str, Any]] = []
         self._buffer_lock = asyncio.Lock()
-        self._allowed_ips: dict[str, int] = {}
+        self._allowed_ips: dict[str, dict[str, Any]] = {}
         self._running = True
         self._flush_interval = 5  # seconds
         self._allowlist_refresh_interval = allowlist_refresh_interval
@@ -162,10 +186,10 @@ class SyslogReceiver:
         self._running = False
 
     async def refresh_allowlist(self) -> None:
-        """Fetch enabled device IPs from DB without blocking the event loop."""
+        """Fetch enabled device IPs and metadata from DB without blocking the event loop."""
         loop = asyncio.get_running_loop()
-        raw_map = await loop.run_in_executor(None, db.get_allowed_device_ips)
-        normalized = {normalize_ip(ip): dev_id for ip, dev_id in raw_map.items()}
+        raw_map = await loop.run_in_executor(None, db.get_allowed_devices)
+        normalized = {normalize_ip(ip): dev_info for ip, dev_info in raw_map.items()}
         self._allowed_ips.clear()
         self._allowed_ips.update(normalized)
 

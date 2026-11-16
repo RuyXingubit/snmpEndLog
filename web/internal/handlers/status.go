@@ -100,10 +100,10 @@ func HandleAPIStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	status["hypertables"] = hypertables
 
-	// --- Logs rate (last hour) ---
+	// --- Logs rate (last hour, enabled registered devices) ---
 	var logsLastHour int64
 	db.Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM logs WHERE time > NOW() - INTERVAL '1 hour'`,
+		`SELECT COUNT(*) FROM logs WHERE time > NOW() - INTERVAL '1 hour' AND `+registeredDeviceLogsWhere,
 	).Scan(&logsLastHour)
 	status["logs_last_hour"] = logsLastHour
 

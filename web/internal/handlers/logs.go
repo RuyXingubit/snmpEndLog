@@ -36,38 +36,12 @@ type SeverityCount struct {
 	Count    int    `json:"count"`
 }
 
-// HandleLogs renders the log viewer page.
-func HandleLogs(w http.ResponseWriter, r *http.Request) {
-	renderTemplate(w, "logs.html", map[string]interface{}{
-		"Title": "Logs",
-	}, r)
-}
+// registeredDeviceLogsWhere restricts log queries to entries associated with an enabled registered device.
+const registeredDeviceLogsWhere = "device_id IS NOT NULL AND EXISTS (SELECT 1 FROM devices d WHERE d.id = logs.device_id AND d.enabled = TRUE)"
 
-// HandleAPILogs returns paginated, filtered logs as JSON.
-// GET /api/logs?host=X&severity=error&q=text&period=1h&page=1&per_page=50
-func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	host := strings.TrimSpace(q.Get("host"))
-	severity := strings.TrimSpace(q.Get("severity"))
-	search := strings.TrimSpace(q.Get("q"))
-	tf := parseTimeFilter(r)
-	exact := q.Get("exact") == "true"
-	page, _ := strconv.Atoi(q.Get("page"))
-	perPage, _ := strconv.Atoi(q.Get("per_page"))
-
-	if page < 1 {
-		page = 1
-	}
-	if perPage < 1 || perPage > 200 {
-		perPage = 50
-	}
-	offset := (page - 1) * perPage
-
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
-	defer cancel()
-
-	// Build dynamic query
-	var where []string
+// buildLogsFilterWhere constructs a parameterized WHERE clause for querying logs of enabled registered devices.
+func buildLogsFilterWhere(tf TimeFilter, host, severity, search string, exact bool) (string, []interface{}, int) {
+	where := []string{registeredDeviceLogsWhere}
 	var args []interface{}
 	argIdx := 1
 	where, args, argIdx = tf.AppendTimeWhere(where, args, argIdx)
@@ -98,7 +72,40 @@ func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
 		argIdx++
 	}
 
-	whereClause := strings.Join(where, " AND ")
+	return strings.Join(where, " AND "), args, argIdx
+}
+
+// HandleLogs renders the log viewer page.
+func HandleLogs(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, "logs.html", map[string]interface{}{
+		"Title": "Logs",
+	}, r)
+}
+
+// HandleAPILogs returns paginated, filtered logs as JSON.
+// GET /api/logs?host=X&severity=error&q=text&period=1h&page=1&per_page=50
+func HandleAPILogs(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	host := strings.TrimSpace(q.Get("host"))
+	severity := strings.TrimSpace(q.Get("severity"))
+	search := strings.TrimSpace(q.Get("q"))
+	tf := parseTimeFilter(r)
+	exact := q.Get("exact") == "true"
+	page, _ := strconv.Atoi(q.Get("page"))
+	perPage, _ := strconv.Atoi(q.Get("per_page"))
+
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 200 {
+		perPage = 50
+	}
+	offset := (page - 1) * perPage
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	whereClause, args, argIdx := buildLogsFilterWhere(tf, host, severity, search, exact)
 
 	// Count total
 	var total int
@@ -144,7 +151,7 @@ func HandleAPILogStats(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	var where []string
+	where := []string{registeredDeviceLogsWhere}
 	var args []interface{}
 	argIdx := 1
 	where, args, _ = tf.AppendTimeWhere(where, args, argIdx)
@@ -179,9 +186,12 @@ func HandleAPILogHosts(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	rows, err := db.Pool.Query(ctx, `
-		SELECT DISTINCT host FROM logs
-		WHERE time > NOW() - INTERVAL '7 days'
-		ORDER BY host
+		SELECT DISTINCT l.host
+		FROM logs l
+		WHERE l.time > NOW() - INTERVAL '7 days'
+		  AND l.device_id IS NOT NULL
+		  AND EXISTS (SELECT 1 FROM devices d WHERE d.id = l.device_id AND d.enabled = TRUE)
+		ORDER BY l.host
 	`)
 	if err != nil {
 		log.Printf("HandleAPILogHosts query error: %v", err)
@@ -214,37 +224,7 @@ func HandleAPILogExport(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	// Build dynamic query
-	var where []string
-	var args []interface{}
-	argIdx := 1
-	where, args, argIdx = tf.AppendTimeWhere(where, args, argIdx)
-
-	if host != "" {
-		where = append(where, "host = $"+strconv.Itoa(argIdx))
-		args = append(args, host)
-		argIdx++
-	}
-
-	if severity != "" {
-		where = append(where, "severity_name = $"+strconv.Itoa(argIdx))
-		args = append(args, severity)
-		argIdx++
-	}
-
-	if search != "" {
-		if exact {
-			where = append(where, "(message ILIKE $"+strconv.Itoa(argIdx)+" OR app_name ILIKE $"+strconv.Itoa(argIdx)+")")
-			args = append(args, "%"+search+"%")
-		} else {
-			where = append(where, "(to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+") OR app_name ILIKE $"+strconv.Itoa(argIdx+1)+")")
-			args = append(args, search, "%"+search+"%")
-			argIdx++
-		}
-		argIdx++
-	}
-
-	whereClause := strings.Join(where, " AND ")
+	whereClause, args, _ := buildLogsFilterWhere(tf, host, severity, search, exact)
 	query := "SELECT time, host, COALESCE(severity_name, 'unknown'), COALESCE(app_name, ''), message FROM logs WHERE " +
 		whereClause + " ORDER BY time DESC LIMIT 10000"
 
@@ -306,37 +286,7 @@ func HandleAPILogExportTXT(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	// Build dynamic query
-	var where []string
-	var args []interface{}
-	argIdx := 1
-	where, args, argIdx = tf.AppendTimeWhere(where, args, argIdx)
-
-	if host != "" {
-		where = append(where, "host = $"+strconv.Itoa(argIdx))
-		args = append(args, host)
-		argIdx++
-	}
-
-	if severity != "" {
-		where = append(where, "severity_name = $"+strconv.Itoa(argIdx))
-		args = append(args, severity)
-		argIdx++
-	}
-
-	if search != "" {
-		if exact {
-			where = append(where, "(message ILIKE $"+strconv.Itoa(argIdx)+" OR app_name ILIKE $"+strconv.Itoa(argIdx)+")")
-			args = append(args, "%"+search+"%")
-		} else {
-			where = append(where, "(to_tsvector('simple', message) @@ plainto_tsquery('simple', $"+strconv.Itoa(argIdx)+") OR app_name ILIKE $"+strconv.Itoa(argIdx+1)+")")
-			args = append(args, search, "%"+search+"%")
-			argIdx++
-		}
-		argIdx++
-	}
-
-	whereClause := strings.Join(where, " AND ")
+	whereClause, args, _ := buildLogsFilterWhere(tf, host, severity, search, exact)
 	query := "SELECT time, host, COALESCE(severity_name, 'unknown'), COALESCE(app_name, ''), message FROM logs WHERE " +
 		whereClause + " ORDER BY time DESC LIMIT 10000"
 

@@ -52,11 +52,13 @@ func HandleDashboard(w http.ResponseWriter, r *http.Request) {
 	_ = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM interfaces WHERE if_oper_status = 1").Scan(&data.InterfacesUp)
 	data.InterfacesDown = data.TotalInterfaces - data.InterfacesUp
 
-	// Recent logs (last 20)
+	// Recent logs (last 20 from enabled registered devices)
 	rows, err := db.Pool.Query(ctx, `
 		SELECT time, host, COALESCE(severity_name, 'unknown'), COALESCE(app_name, ''),
 		       message
-		FROM logs ORDER BY time DESC LIMIT 20
+		FROM logs
+		WHERE `+registeredDeviceLogsWhere+`
+		ORDER BY time DESC LIMIT 20
 	`)
 	if err == nil {
 		defer rows.Close()
