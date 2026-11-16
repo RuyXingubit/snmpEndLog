@@ -1,3 +1,10 @@
+## [1.14.2](https://github.com/RuyXingubit/snmpEndLog/compare/v1.14.1...v1.14.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* **logs:** enforce registered device origin and purge unknown logs ([5fff6cc](https://github.com/RuyXingubit/snmpEndLog/commit/5fff6cc9180ae77052db3d8f283e879c8b8932ee))
+
 ## [1.14.1](https://github.com/RuyXingubit/snmpEndLog/compare/v1.14.0...v1.14.1) (2026-11-11)
 
 
